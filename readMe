@@ -1,0 +1,198 @@
+# 🖼️ Django Art Gallery Project
+
+A full-featured art gallery web application built with Django. Users can upload artworks, browse by category/style, comment, like, and manage their profiles.
+
+---
+
+## 📁 Project Structure
+
+art_gallery/
+├── manage.py
+├── requirements.txt
+├── art_gallery/ # Main project settings
+│ ├── settings.py
+│ ├── urls.py
+│ └── wsgi.py / asgi.py
+├── gallery/ # Main app
+│ ├── models.py
+│ ├── views.py
+│ ├── forms.py
+│ ├── urls.py
+│ └── admin.py
+├── templates/ # HTML templates
+│ ├── base.html
+│ ├── gallery/
+│ └── registration/
+├── static/ # Static files (CSS, JS, images)
+├── media/ # Uploaded images
+
+yaml
+Copier le code
+
+---
+
+## 📦 Requirements
+
+Django==4.2
+Pillow==10.0.0
+django-crispy-forms==2.0
+crispy-bootstrap5==0.7
+
+csharp
+Copier le code
+
+Install with:
+
+```bash
+pip install -r requirements.txt
+⚙️ Configuration Highlights (settings.py)
+Static files:
+STATICFILES_DIRS = [BASE_DIR / 'static']
+
+Media files:
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+Templates:
+DIRS = [BASE_DIR / 'templates']
+
+Authentication Redirects:
+
+LOGIN_URL = 'login'
+
+LOGIN_REDIRECT_URL = '/'
+
+LOGOUT_REDIRECT_URL = '/'
+
+Crispy Forms:
+Using bootstrap5 as the template pack.
+
+🚀 Features
+🔐 User registration, login/logout
+
+🎨 Upload and display artworks with categories and styles
+
+💬 Commenting system with timestamps
+
+❤️ Like/unlike functionality using AJAX
+
+📈 Artwork view counting
+
+📷 Image resizing and optimization with Pillow
+
+🔍 Search, filter, and sort (by popularity, views, latest)
+
+🧑 User profiles with avatar and bio
+
+🧾 Pagination for browsing artworks
+
+🌟 Admin dashboard with management features
+
+📱 Responsive templates using Bootstrap 5
+
+🧪 Setup Instructions
+1. Clone and Navigate
+bash
+Copier le code
+git clone <repo-url>
+cd art_gallery
+2. Create a virtual environment
+bash
+Copier le code
+python -m venv venv
+venv\Scripts\activate  # Windows
+# or
+source venv/bin/activate  # macOS/Linux
+3. Install dependencies
+bash
+Copier le code
+pip install -r requirements.txt
+4. Migrate and create superuser
+bash
+Copier le code
+python manage.py makemigrations
+python manage.py migrate
+python manage.py createsuperuser
+5. Run development server
+bash
+Copier le code
+python manage.py runserver
+Then go to:
+http://127.0.0.1:8000/
+
+🧩 Admin Setup Tips
+Log in to /admin/ and add some categories:
+
+Abstract Art
+
+Digital Art
+
+Photography
+
+Generative Art
+
+Mixed Media
+
+🖼️ Screens & Pages
+/ – Homepage with filters, featured artworks, pagination
+
+/artwork/<id>/ – Artwork detail view
+
+/upload/ – Upload a new artwork
+
+/profile/ – View & edit your own profile
+
+/profile/<username>/ – View others' profiles
+
+/accounts/login/ – Login
+
+/register/ – Registration page
+
+🛠️ Folder Setup Commands (optional)
+If you need to manually create folders:
+
+cmd
+Copier le code
+mkdir templates
+mkdir templates\gallery
+mkdir templates\registration
+
+mkdir static
+mkdir static\css
+mkdir static\js
+mkdir static\images
+
+mkdir media
+mkdir media\artworks
+mkdir media\avatars
+Or use PowerShell:
+
+powershell
+Copier le code
+mkdir templates/gallery, templates/registration
+mkdir static/css, static/js, static/images
+mkdir media/artworks, media/avatars
+📸 Gallery Model Summary
+Artwork: title, description, category, style, image, views, featured, artist
+
+Category: for grouping artworks
+
+Like: connects users to liked artworks
+
+Comment: user-generated feedback
+
+UserProfile: extended user info (bio, avatar, etc.)
+
+🤝 Contributing
+Feel free to fork, modify, and open a PR. Contributions and feedback are always welcome!
+
+🛡️ License
+This project is open-source and available under the MIT License.
+
+📬 Contact
+For any questions or feedback:
+
+GitHub: DhiaGhouma
+
+Email: Ghoumadhia01@gmail.com
+
