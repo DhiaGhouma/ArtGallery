@@ -50,6 +50,14 @@ def index(request):
     categories = Category.objects.all()
     styles = Artwork.STYLE_CHOICES
 
+    # Get user's liked artworks on this page
+    user_liked_artworks = set()
+    if request.user.is_authenticated:
+        user_liked_artworks = set(
+            Like.objects.filter(user=request.user, artwork__in=page_obj.object_list)
+            .values_list('artwork_id', flat=True)
+        )
+
     context = {
         'page_obj': page_obj,
         'categories': categories,
@@ -59,6 +67,7 @@ def index(request):
         'current_search': search,
         'current_sort': sort_by,
         'featured_artworks': Artwork.objects.filter(is_featured=True)[:4],
+        'user_liked_artworks': user_liked_artworks,  # pass liked artworks to template
     }
     return render(request, 'gallery/index.html', context)
 
