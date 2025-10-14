@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import CurvedLoop from '@/components/CurvedLoop';
+import ShinyText from '@/components/ShinyText';
 
 const Home = () => {
   const [artworks, setArtworks] = useState<Artwork[]>([]);
@@ -21,23 +23,23 @@ const Home = () => {
   }, [category, style]);
 
   const loadArtworks = async () => {
-  try {
-    setLoading(true);
-    const response = await api.getArtworks({ category, style, search });
-    const data = Array.isArray(response) ? response : [];
-    setArtworks(data);
-    setFeatured(data.slice(0, 3));
-  } catch (error) {
-    console.error('Error loading artworks:', error);
-    toast({
-      title: 'Error',
-      description: 'Failed to load artworks',
-      variant: 'destructive',
-    });
-  } finally {
-    setLoading(false);
-  }
-};
+    try {
+      setLoading(true);
+      const response = await api.getArtworks({ category, style, search });
+      const data = Array.isArray(response) ? response : [];
+      setArtworks(data);
+      setFeatured(data.slice(0, 3));
+    } catch (error) {
+      console.error('Error loading artworks:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load artworks',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSearch = () => {
     loadArtworks();
@@ -60,6 +62,19 @@ const Home = () => {
       {/* Hero Section */}
       <section className="relative py-20 px-4 overflow-hidden liquid-bg">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background" />
+        
+        {/* Curved Loop Welcome Message */}
+        <div className="absolute top-10 left-0 right-0 z-0 opacity-30">
+          <CurvedLoop 
+            marqueeText="Welcome to Digital Art Gallery ✦ Discover ✦ Create ✦ Inspire ✦"
+            speed={2}
+            curveAmount={400}
+            direction="right"
+            interactive={true}
+            className="text-primary/50"
+          />
+        </div>
+
         <div className="container mx-auto text-center relative z-10 animate-fade-in">
           <div className="inline-block mb-4">
             <Sparkles className="w-12 h-12 text-primary animate-float mx-auto" />
@@ -68,7 +83,12 @@ const Home = () => {
             Discover Digital Masterpieces
           </h1>
           <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Immerse yourself in a vibrant community of artists sharing their most creative works
+            <ShinyText 
+              text="Immerse yourself in a vibrant community of artists sharing their most creative works" 
+              disabled={false} 
+              speed={3} 
+              className="inline-block"
+            />
           </p>
           
           {/* Search Bar */}
