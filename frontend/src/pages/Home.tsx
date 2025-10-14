@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import CurvedLoop from '@/components/CurvedLoop';
 import ShinyText from '@/components/ShinyText';
+import LiquidEther from '@/components/LiquidEther';
 
 const Home = () => {
   const [artworks, setArtworks] = useState<Artwork[]>([]);
@@ -60,7 +61,27 @@ const Home = () => {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative py-20 px-4 overflow-hidden liquid-bg">
+      <section className="relative py-20 px-4 overflow-hidden">
+        {/* LiquidEther Background */}
+        <div className="absolute inset-0" style={{ width: '100%', height: '100%' }}>
+          <LiquidEther
+            colors={['#5227FF', '#FF9FFC', '#B19EEF']}
+            mouseForce={20}
+            cursorSize={100}
+            isViscous={false}
+            viscous={30}
+            iterationsViscous={32}
+            iterationsPoisson={32}
+            resolution={0.5}
+            isBounce={false}
+            autoDemo={true}
+            autoSpeed={0.5}
+            autoIntensity={2.2}
+            takeoverDuration={0.25}
+            autoResumeDelay={3000}
+            autoRampDuration={0.6}
+          />
+        </div>
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background" />
         
         {/* Curved Loop Welcome Message */}

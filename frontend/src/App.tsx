@@ -16,6 +16,7 @@ import NotFound from "./pages/NotFound";
 import Test from "./pages/Test";
 import Explore from "./pages/Explore";
 import Marketplace from "./pages/MarketPlace";
+import Community from "./pages/Community";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/test" element={<Test />} />
             <Route path="/explore" element={<Explore />} />
             <Route path="/marketplace" element={<Marketplace />} />
+            <Route path="/community" element={<Community />} />
 
           </Routes>
         </BrowserRouter>
