@@ -14,6 +14,8 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
 import Test from "./pages/Test";
+import Explore from "./pages/Explore";
+import Marketplace from "./pages/MarketPlace";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +37,9 @@ const App = () => (
             <Route path="/register" element={<Register />} />
             <Route path="*" element={<NotFound />} />
             <Route path="/test" element={<Test />} />
+            <Route path="/explore" element={<Explore />} />
+            <Route path="/marketplace" element={<Marketplace />} />
+
           </Routes>
         </BrowserRouter>
       </AuthProvider>
