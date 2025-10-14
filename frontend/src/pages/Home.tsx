@@ -21,22 +21,23 @@ const Home = () => {
   }, [category, style]);
 
   const loadArtworks = async () => {
-    try {
-      setLoading(true);
-      const response = await api.getArtworks({ category, style, search });
-      setArtworks(response.results);
-      // Featured = first 3 artworks
-      setFeatured(response.results.slice(0, 3));
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load artworks',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    setLoading(true);
+    const response = await api.getArtworks({ category, style, search });
+    const data = Array.isArray(response) ? response : [];
+    setArtworks(data);
+    setFeatured(data.slice(0, 3));
+  } catch (error) {
+    console.error('Error loading artworks:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to load artworks',
+      variant: 'destructive',
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleSearch = () => {
     loadArtworks();

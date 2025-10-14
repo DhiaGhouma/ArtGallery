@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
-import Navbar from "./components/Navbar";
+import Navbar from "./components/NavBar";
 import Home from "./pages/Home";
 import ArtworkDetail from "./pages/ArtworkDetail";
 import Upload from "./pages/Upload";
@@ -13,6 +13,7 @@ import Profile from "./pages/Profile";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
+import Test from "./pages/Test";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="*" element={<NotFound />} />
+            <Route path="/test" element={<Test />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

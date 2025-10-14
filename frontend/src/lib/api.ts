@@ -1,10 +1,5 @@
 // API service for Django REST API backend
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
-
-interface ApiResponse<T> {
-  data: T;
-  error?: string;
-}
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // Types
 export interface Artwork {
@@ -19,21 +14,21 @@ export interface Artwork {
     username: string;
     avatar?: string;
   };
-  likes: number;
+  likes_count: number;
   views: number;
-  comments: Comment[];
+  is_featured?: boolean;
   created_at: string;
-  is_liked?: boolean;
+  updated_at: string;
 }
 
 export interface Comment {
   id: number;
+  text: string;
   user: {
     id: number;
     username: string;
     avatar?: string;
   };
-  text: string;
   created_at: string;
 }
 
@@ -43,18 +38,9 @@ export interface User {
   email: string;
   avatar?: string;
   bio?: string;
-  location?: string;
-  website?: string;
 }
 
-export interface PaginatedResponse<T> {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: T[];
-}
-
-// Auth helpers
+// Auth helper
 const getAuthHeader = () => {
   const token = localStorage.getItem('token');
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -62,37 +48,45 @@ const getAuthHeader = () => {
 
 // API functions
 export const api = {
-  // Artworks
-  async getArtworks(params?: {
-    page?: number;
-    category?: string;
-    style?: string;
-    search?: string;
-    sort?: string;
-  }): Promise<PaginatedResponse<Artwork>> {
+  // Get all artworks
+  async getArtworks(params?: { search?: string; category?: string; style?: string }) {
     const queryParams = new URLSearchParams();
-    if (params?.page) queryParams.append('page', params.page.toString());
-    if (params?.category) queryParams.append('category', params.category);
-    if (params?.style) queryParams.append('style', params.style);
     if (params?.search) queryParams.append('search', params.search);
-    if (params?.sort) queryParams.append('sort', params.sort);
+    if (params?.category && params.category !== 'all') queryParams.append('category', params.category);
+    if (params?.style && params.style !== 'all') queryParams.append('style', params.style);
 
-    const response = await fetch(`${API_BASE_URL}/artworks/?${queryParams}`, {
+    const queryString = queryParams.toString();
+    const url = `${API_BASE_URL}/${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await fetch(url, {
       headers: getAuthHeader(),
     });
     if (!response.ok) throw new Error('Failed to fetch artworks');
-    return response.json();
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
   },
 
-  async getArtwork(id: number): Promise<Artwork> {
-    const response = await fetch(`${API_BASE_URL}/artworks/${id}/`, {
+  // Get single artwork
+  async getArtwork(id: number) {
+    const response = await fetch(`${API_BASE_URL}/artwork/${id}/`, {
       headers: getAuthHeader(),
     });
     if (!response.ok) throw new Error('Failed to fetch artwork');
     return response.json();
   },
 
-  async uploadArtwork(formData: FormData): Promise<Artwork> {
+  // Like an artwork
+  async likeArtwork(id: number) {
+    const response = await fetch(`${API_BASE_URL}/artwork/${id}/like/`, {
+      method: 'POST',
+      headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) throw new Error('Failed to like artwork');
+    return response.json();
+  },
+
+  // Upload artwork
+  async uploadArtwork(formData: FormData) {
     const response = await fetch(`${API_BASE_URL}/upload/`, {
       method: 'POST',
       headers: getAuthHeader(),
@@ -102,25 +96,11 @@ export const api = {
     return response.json();
   },
 
-  async likeArtwork(id: number): Promise<{ liked: boolean; likes: number }> {
-    const response = await fetch(`${API_BASE_URL}/artworks/${id}/like/`, {
+  // Comment on artwork
+  async commentOnArtwork(id: number, text: string) {
+    const response = await fetch(`${API_BASE_URL}/artwork/${id}/comment/`, {
       method: 'POST',
-      headers: {
-        ...getAuthHeader(),
-        'Content-Type': 'application/json',
-      },
-    });
-    if (!response.ok) throw new Error('Failed to like artwork');
-    return response.json();
-  },
-
-  async commentOnArtwork(id: number, text: string): Promise<Comment> {
-    const response = await fetch(`${API_BASE_URL}/artworks/${id}/comment/`, {
-      method: 'POST',
-      headers: {
-        ...getAuthHeader(),
-        'Content-Type': 'application/json',
-      },
+      headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
     });
     if (!response.ok) throw new Error('Failed to comment');
@@ -128,49 +108,54 @@ export const api = {
   },
 
   // Auth
-  async register(data: {
-    username: string;
-    email: string;
-    password: string;
-  }): Promise<{ token: string; user: User }> {
+  async register(data: { username: string; email: string; password: string }) {
     const response = await fetch(`${API_BASE_URL}/register/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error('Registration failed');
+    if (!response.ok) {
+  const error = await response.json();
+  throw new Error(error.error || 'Registration failed'); // use error.error
+}
+
     return response.json();
   },
 
-  async login(data: {
-    username: string;
-    password: string;
-  }): Promise<{ token: string; user: User }> {
+  async login(data: { username: string; password: string }) {
     const response = await fetch(`${API_BASE_URL}/login/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error('Login failed');
-    return response.json();
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Login failed');
+    }
+    const result = await response.json();
+    if (result.token) {
+      localStorage.setItem('token', result.token);
+    }
+    return result;
   },
 
   // Profile
-  async getProfile(): Promise<User> {
-    const response = await fetch(`${API_BASE_URL}/profile/`, {
+  async getProfile(username?: string) {
+    const url = username 
+      ? `${API_BASE_URL}/profile/${username}/`
+      : `${API_BASE_URL}/profile/`;
+    
+    const response = await fetch(url, {
       headers: getAuthHeader(),
     });
     if (!response.ok) throw new Error('Failed to fetch profile');
     return response.json();
   },
 
-  async updateProfile(data: Partial<User>): Promise<User> {
+  async updateProfile(data: Partial<{ username: string; email: string; avatar?: string; bio?: string }>) {
     const response = await fetch(`${API_BASE_URL}/profile/`, {
       method: 'PUT',
-      headers: {
-        ...getAuthHeader(),
-        'Content-Type': 'application/json',
-      },
+      headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error('Failed to update profile');
