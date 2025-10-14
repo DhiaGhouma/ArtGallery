@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
-from .models import Artwork, Comment, UserProfile
+from .models import Artwork, Comment, UserProfile, Report
 
 class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(required=True)
@@ -44,4 +44,12 @@ class UserProfileForm(forms.ModelForm):
         fields = ['bio', 'location', 'website', 'avatar']
         widgets = {
             'bio': forms.Textarea(attrs={'rows': 4}),
+        }
+        
+class ReportForm(forms.ModelForm):
+    class Meta:
+        model = Report
+        fields = ['artwork', 'comment', 'reason', 'description']
+        widgets = {
+            'description': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Explain why you are reporting this...'}),
         }

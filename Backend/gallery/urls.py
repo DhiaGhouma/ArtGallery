@@ -11,4 +11,9 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),  # Add this line
     path('profile/', views.profile, name='profile'),
     path('profile/<str:username>/', views.profile, name='user_profile'),
+    # Reports endpoints
+    path('reports/', views.reports_list, name='reports_list'),  # GET all reports / POST create report
+    path('reports/artwork/<int:artwork_id>/', views.report_artwork, name='report_artwork'),  # POST report artwork
+    path('reports/comment/<int:comment_id>/', views.report_comment, name='report_comment'),  # POST report comment
+    path('reports/<int:report_id>/resolve/', views.take_action, name='resolve_report'),  # POST take action / resolve report
 ]

@@ -85,3 +85,26 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.username}'s profile"
+    
+class Report(models.Model):
+    REPORT_CHOICES = [
+        ('inappropriate', 'Inappropriate Content'),
+        ('spam', 'Spam'),
+        ('copyright', 'Copyright Violation'),
+        ('other', 'Other'),
+    ]
+
+    reporter = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reports_made')
+    artwork = models.ForeignKey(Artwork, on_delete=models.CASCADE, null=True, blank=True, related_name='reports')
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, null=True, blank=True, related_name='reports')
+    reason = models.CharField(max_length=50, choices=REPORT_CHOICES)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        target = self.artwork.title if self.artwork else f'Comment by {self.comment.user.username}'
+        return f'Report by {self.reporter.username} on {target}'
