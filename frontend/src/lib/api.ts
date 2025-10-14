@@ -31,6 +31,25 @@ export interface Comment {
   };
   created_at: string;
 }
+export interface Report {
+  id: number;
+  reporter: {
+    id: number;
+    username: string;
+  };
+  artwork: {
+    id: number;
+    title: string;
+    image: string;
+  };
+  comment?: {
+    id: number;
+    text: string;
+  };
+  reason: string;
+  is_resolved: boolean;
+  created_at: string;
+}
 
 export interface User {
   id: number;
