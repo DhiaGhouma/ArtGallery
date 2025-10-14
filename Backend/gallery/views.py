@@ -397,7 +397,7 @@ def report_comment(request, comment_id):
 from django.contrib.admin.views.decorators import staff_member_required
 
 @staff_member_required
-def list_reports(request):
+def reports_list(request):
     reports = Report.objects.all().order_by('-created_at')
     return render(request, 'reports/report_list.html', {'reports': reports})
 
