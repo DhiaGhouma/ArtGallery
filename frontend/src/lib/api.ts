@@ -16,9 +16,11 @@ export interface Artwork {
   };
   likes_count: number;
   views: number;
+  is_liked?: boolean;
   is_featured?: boolean;
   created_at: string;
   updated_at: string;
+  comments?: Comment[];
 }
 
 export interface Comment {
@@ -38,12 +40,34 @@ export interface User {
   email: string;
   avatar?: string;
   bio?: string;
+  location?: string;
+  website?: string;
+  artworks_count?: number;
 }
 
-// Auth helper
+// Helper to get CSRF token from cookies
+const getCookie = (name: string) => {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+};
+
+// Auth helper - Django uses session auth, not token by default
 const getAuthHeader = () => {
-  const token = localStorage.getItem('token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  const csrftoken = getCookie('csrftoken');
+  const headers: HeadersInit = {
+    'X-CSRFToken': csrftoken || '',
+  };
+  return headers;
 };
 
 // API functions
@@ -59,7 +83,7 @@ export const api = {
     const url = `${API_BASE_URL}/${queryString ? `?${queryString}` : ''}`;
     
     const response = await fetch(url, {
-      headers: getAuthHeader(),
+      credentials: 'include', // Important for session auth
     });
     if (!response.ok) throw new Error('Failed to fetch artworks');
     const data = await response.json();
@@ -67,98 +91,148 @@ export const api = {
   },
 
   // Get single artwork
-  async getArtwork(id: number) {
+  async getArtwork(id: number): Promise<Artwork> {
     const response = await fetch(`${API_BASE_URL}/artwork/${id}/`, {
-      headers: getAuthHeader(),
+      credentials: 'include',
     });
     if (!response.ok) throw new Error('Failed to fetch artwork');
     return response.json();
   },
 
-  // Like an artwork
-  async likeArtwork(id: number) {
+  // Like/Unlike an artwork
+  async likeArtwork(id: number): Promise<{ liked: boolean; likes_count: number }> {
     const response = await fetch(`${API_BASE_URL}/artwork/${id}/like/`, {
       method: 'POST',
-      headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+      headers: {
+        ...getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
     });
-    if (!response.ok) throw new Error('Failed to like artwork');
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to like artwork');
+    }
     return response.json();
   },
 
   // Upload artwork
-  async uploadArtwork(formData: FormData) {
+  async uploadArtwork(formData: FormData): Promise<{ id: number; message: string }> {
     const response = await fetch(`${API_BASE_URL}/upload/`, {
       method: 'POST',
       headers: getAuthHeader(),
+      credentials: 'include',
       body: formData,
     });
-    if (!response.ok) throw new Error('Failed to upload artwork');
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to upload artwork');
+    }
     return response.json();
   },
 
   // Comment on artwork
-  async commentOnArtwork(id: number, text: string) {
+  async commentOnArtwork(id: number, text: string): Promise<Comment> {
     const response = await fetch(`${API_BASE_URL}/artwork/${id}/comment/`, {
       method: 'POST',
-      headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+      headers: {
+        ...getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
       body: JSON.stringify({ text }),
     });
-    if (!response.ok) throw new Error('Failed to comment');
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to add comment');
+    }
     return response.json();
   },
 
   // Auth
-  async register(data: { username: string; email: string; password: string }) {
+  async register(data: { username: string; email: string; password: string }): Promise<{ message: string; user: User }> {
     const response = await fetch(`${API_BASE_URL}/register/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) {
-  const error = await response.json();
-  throw new Error(error.error || 'Registration failed'); // use error.error
-}
-
-    return response.json();
-  },
-
-  async login(data: { username: string; password: string }) {
-    const response = await fetch(`${API_BASE_URL}/login/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        ...getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
       body: JSON.stringify(data),
     });
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || 'Login failed');
+      throw new Error(error.error || 'Registration failed');
     }
-    const result = await response.json();
-    if (result.token) {
-      localStorage.setItem('token', result.token);
+    return response.json();
+  },
+
+  async login(data: { username: string; password: string }): Promise<{ message: string; user: User }> {
+    const response = await fetch(`${API_BASE_URL}/login/`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Login failed');
     }
-    return result;
+    return response.json();
+  },
+
+  async logout() {
+    const response = await fetch(`${API_BASE_URL}/logout/`, {
+      method: 'POST',
+      headers: getAuthHeader(),
+      credentials: 'include',
+    });
+    if (!response.ok) throw new Error('Failed to logout');
+    return response.json();
+  },
+
+  // Check authentication status
+  async checkAuth(): Promise<{ authenticated: boolean; user?: User }> {
+    const response = await fetch(`${API_BASE_URL}/check-auth/`, {
+      credentials: 'include',
+    });
+    if (!response.ok) throw new Error('Failed to check authentication');
+    return response.json();
   },
 
   // Profile
-  async getProfile(username?: string) {
+  async getProfile(username?: string): Promise<User> {
     const url = username 
       ? `${API_BASE_URL}/profile/${username}/`
       : `${API_BASE_URL}/profile/`;
     
     const response = await fetch(url, {
-      headers: getAuthHeader(),
+      credentials: 'include',
     });
-    if (!response.ok) throw new Error('Failed to fetch profile');
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to fetch profile');
+    }
     return response.json();
   },
 
-  async updateProfile(data: Partial<{ username: string; email: string; avatar?: string; bio?: string }>) {
+  async updateProfile(data: Partial<{ username: string; email: string; bio?: string; location?: string; website?: string }>): Promise<{ message: string; user: User }> {
     const response = await fetch(`${API_BASE_URL}/profile/`, {
       method: 'PUT',
-      headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+      headers: {
+        ...getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error('Failed to update profile');
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update profile');
+    }
     return response.json();
   },
 };

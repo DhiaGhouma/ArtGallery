@@ -6,59 +6,60 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db.models import Q
 import json
+from .models import Artwork, Comment, Like, Category, UserProfile
 
-# Assuming you have these models - adjust based on your actual models
-# from .models import Artwork, Comment, Like
 
 @require_http_methods(["GET"])
 def index(request):
     """Get all artworks with optional filters"""
     try:
-        # Import your Artwork model here
-        # from .models import Artwork
-        
-        # For now, return empty array if model not set up
-        # artworks = Artwork.objects.all()
+        artworks = Artwork.objects.all()
         
         # Handle filters
         search = request.GET.get('search', '')
         category = request.GET.get('category', '')
         style = request.GET.get('style', '')
         
-        # Uncomment when model is ready
-        # if search:
-        #     artworks = artworks.filter(
-        #         Q(title__icontains=search) | 
-        #         Q(description__icontains=search)
-        #     )
-        # if category:
-        #     artworks = artworks.filter(category=category)
-        # if style:
-        #     artworks = artworks.filter(style=style)
+        if search:
+            artworks = artworks.filter(
+                Q(title__icontains=search) | 
+                Q(description__icontains=search)
+            )
+        if category:
+            artworks = artworks.filter(category__name=category)
+        if style:
+            artworks = artworks.filter(style=style)
         
-        # artworks = artworks.order_by('-created_at')
+        artworks = artworks.order_by('-created_at')
         
-        # data = [{
-        #     'id': artwork.id,
-        #     'title': artwork.title,
-        #     'description': artwork.description,
-        #     'image': request.build_absolute_uri(artwork.image.url) if artwork.image else None,
-        #     'category': artwork.category,
-        #     'style': artwork.style,
-        #     'artist': {
-        #         'id': artwork.artist.id,
-        #         'username': artwork.artist.username,
-        #         'avatar': request.build_absolute_uri(artwork.artist.profile.avatar.url) if hasattr(artwork.artist, 'profile') and artwork.artist.profile.avatar else None,
-        #     },
-        #     'likes_count': artwork.likes.count() if hasattr(artwork, 'likes') else 0,
-        #     'views': artwork.views if hasattr(artwork, 'views') else 0,
-        #     'is_featured': artwork.is_featured if hasattr(artwork, 'is_featured') else False,
-        #     'created_at': artwork.created_at.isoformat(),
-        #     'updated_at': artwork.updated_at.isoformat(),
-        # } for artwork in artworks]
-        
-        # Temporary: Return empty array until models are set up
         data = []
+        for artwork in artworks:
+            # Get artist avatar
+            avatar = None
+            try:
+                if hasattr(artwork.artist, 'userprofile') and artwork.artist.userprofile.avatar:
+                    avatar = request.build_absolute_uri(artwork.artist.userprofile.avatar.url)
+            except UserProfile.DoesNotExist:
+                pass
+            
+            data.append({
+                'id': artwork.id,
+                'title': artwork.title,
+                'description': artwork.description,
+                'image': request.build_absolute_uri(artwork.image.url) if artwork.image else None,
+                'category': artwork.category.name if artwork.category else None,
+                'style': artwork.style,
+                'artist': {
+                    'id': artwork.artist.id,
+                    'username': artwork.artist.username,
+                    'avatar': avatar,
+                },
+                'likes_count': artwork.likes.count(),
+                'views': artwork.views,
+                'is_featured': artwork.is_featured,
+                'created_at': artwork.created_at.isoformat(),
+                'updated_at': artwork.updated_at.isoformat(),
+            })
         
         return JsonResponse(data, safe=False)
     except Exception as e:
@@ -69,125 +70,163 @@ def index(request):
 def artwork_detail(request, pk):
     """Get single artwork with comments"""
     try:
-        # from .models import Artwork, Comment
-        # artwork = Artwork.objects.get(pk=pk)
+        artwork = Artwork.objects.get(pk=pk)
         
-        # # Increment views
-        # artwork.views = (artwork.views or 0) + 1
-        # artwork.save()
+        # Increment views
+        artwork.views += 1
+        artwork.save()
         
-        # # Get comments
-        # comments = Comment.objects.filter(artwork=artwork).order_by('-created_at')
+        # Get comments
+        comments = Comment.objects.filter(artwork=artwork).order_by('-created_at')
         
-        # data = {
-        #     'id': artwork.id,
-        #     'title': artwork.title,
-        #     'description': artwork.description,
-        #     'image': request.build_absolute_uri(artwork.image.url) if artwork.image else None,
-        #     'category': artwork.category,
-        #     'style': artwork.style,
-        #     'artist': {
-        #         'id': artwork.artist.id,
-        #         'username': artwork.artist.username,
-        #         'avatar': request.build_absolute_uri(artwork.artist.profile.avatar.url) if hasattr(artwork.artist, 'profile') and artwork.artist.profile.avatar else None,
-        #     },
-        #     'likes_count': artwork.likes.count() if hasattr(artwork, 'likes') else 0,
-        #     'views': artwork.views,
-        #     'is_liked': artwork.likes.filter(user=request.user).exists() if request.user.is_authenticated and hasattr(artwork, 'likes') else False,
-        #     'created_at': artwork.created_at.isoformat(),
-        #     'updated_at': artwork.updated_at.isoformat(),
-        #     'comments': [{
-        #         'id': comment.id,
-        #         'text': comment.text,
-        #         'user': {
-        #             'id': comment.user.id,
-        #             'username': comment.user.username,
-        #             'avatar': request.build_absolute_uri(comment.user.profile.avatar.url) if hasattr(comment.user, 'profile') and comment.user.profile.avatar else None,
-        #         },
-        #         'created_at': comment.created_at.isoformat(),
-        #     } for comment in comments]
-        # }
+        # Get artist avatar
+        artist_avatar = None
+        try:
+            if hasattr(artwork.artist, 'userprofile') and artwork.artist.userprofile.avatar:
+                artist_avatar = request.build_absolute_uri(artwork.artist.userprofile.avatar.url)
+        except UserProfile.DoesNotExist:
+            pass
         
-        # Temporary response
+        data = {
+            'id': artwork.id,
+            'title': artwork.title,
+            'description': artwork.description,
+            'image': request.build_absolute_uri(artwork.image.url) if artwork.image else None,
+            'category': artwork.category.name if artwork.category else None,
+            'style': artwork.style,
+            'artist': {
+                'id': artwork.artist.id,
+                'username': artwork.artist.username,
+                'avatar': artist_avatar,
+            },
+            'likes_count': artwork.likes.count(),
+            'views': artwork.views,
+            'is_liked': artwork.likes.filter(user=request.user).exists() if request.user.is_authenticated else False,
+            'created_at': artwork.created_at.isoformat(),
+            'updated_at': artwork.updated_at.isoformat(),
+            'comments': []
+        }
+        
+        # Add comments
+        for comment in comments:
+            comment_avatar = None
+            try:
+                if hasattr(comment.user, 'userprofile') and comment.user.userprofile.avatar:
+                    comment_avatar = request.build_absolute_uri(comment.user.userprofile.avatar.url)
+            except UserProfile.DoesNotExist:
+                pass
+            
+            data['comments'].append({
+                'id': comment.id,
+                'text': comment.content,
+                'user': {
+                    'id': comment.user.id,
+                    'username': comment.user.username,
+                    'avatar': comment_avatar,
+                },
+                'created_at': comment.created_at.isoformat(),
+            })
+        
+        return JsonResponse(data)
+    except Artwork.DoesNotExist:
         return JsonResponse({'error': 'Artwork not found'}, status=404)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=404)
-
-
-@csrf_exempt
-@require_http_methods(["POST"])
-@login_required
-def upload_artwork(request):
-    """Upload new artwork"""
-    try:
-        # from .models import Artwork
-        
-        # Get form data
-        title = request.POST.get('title')
-        description = request.POST.get('description')
-        category = request.POST.get('category')
-        style = request.POST.get('style')
-        image = request.FILES.get('image')
-        
-        if not all([title, description, category, style, image]):
-            return JsonResponse({'error': 'All fields are required'}, status=400)
-        
-        # artwork = Artwork.objects.create(
-        #     title=title,
-        #     description=description,
-        #     category=category,
-        #     style=style,
-        #     image=image,
-        #     artist=request.user
-        # )
-        
-        # return JsonResponse({
-        #     'id': artwork.id,
-        #     'message': 'Artwork uploaded successfully'
-        # }, status=201)
-        
-        return JsonResponse({'message': 'Upload endpoint ready'}, status=201)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
 
 @csrf_exempt
 @require_http_methods(["POST"])
-@login_required
-def toggle_like(request, pk):
-    """Toggle like on artwork"""
+def upload_artwork(request):
+    """Upload new artwork"""
     try:
-        # from .models import Artwork, Like
+        # Debug logging
+        print(f"User authenticated: {request.user.is_authenticated}")
+        print(f"User: {request.user}")
+        print(f"Session key: {request.session.session_key}")
         
-        # artwork = Artwork.objects.get(pk=pk)
-        # like, created = Like.objects.get_or_create(
-        #     artwork=artwork,
-        #     user=request.user
-        # )
+        # Check if user is authenticated (for API, not using @login_required)
+        if not request.user.is_authenticated:
+            return JsonResponse({
+                'error': 'Authentication required',
+                'debug': {
+                    'user': str(request.user),
+                    'authenticated': request.user.is_authenticated,
+                    'session_key': request.session.session_key
+                }
+            }, status=401)
         
-        # if not created:
-        #     like.delete()
-        #     liked = False
-        # else:
-        #     liked = True
+        from .models import Artwork, Category
         
-        # return JsonResponse({
-        #     'liked': liked,
-        #     'likes_count': artwork.likes.count()
-        # })
+        # Get form data
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        category_name = request.POST.get('category')
+        style = request.POST.get('style')
+        image = request.FILES.get('image')
         
-        return JsonResponse({'message': 'Like endpoint ready'})
+        if not all([title, category_name, style, image]):
+            return JsonResponse({'error': 'Required fields: title, category, style, image'}, status=400)
+        
+        # Get or create category
+        category, _ = Category.objects.get_or_create(name=category_name)
+        
+        # Create artwork
+        artwork = Artwork.objects.create(
+            title=title,
+            description=description or '',
+            category=category,
+            style=style,
+            image=image,
+            artist=request.user
+        )
+        
+        return JsonResponse({
+            'id': artwork.id,
+            'message': 'Artwork uploaded successfully'
+        }, status=201)
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=404)
+        import traceback
+        print(traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 @csrf_exempt
 @require_http_methods(["POST"])
-@login_required
+def toggle_like(request, pk):
+    """Toggle like on artwork"""
+    try:
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        artwork = Artwork.objects.get(pk=pk)
+        like, created = Like.objects.get_or_create(
+            artwork=artwork,
+            user=request.user
+        )
+        
+        if not created:
+            like.delete()
+            liked = False
+        else:
+            liked = True
+        
+        return JsonResponse({
+            'liked': liked,
+            'likes_count': artwork.likes.count()
+        })
+    except Artwork.DoesNotExist:
+        return JsonResponse({'error': 'Artwork not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
 def add_comment(request, pk):
     """Add comment to artwork"""
     try:
-        # from .models import Artwork, Comment
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
         
         data = json.loads(request.body)
         text = data.get('text')
@@ -195,26 +234,35 @@ def add_comment(request, pk):
         if not text:
             return JsonResponse({'error': 'Comment text is required'}, status=400)
         
-        # artwork = Artwork.objects.get(pk=pk)
-        # comment = Comment.objects.create(
-        #     artwork=artwork,
-        #     user=request.user,
-        #     text=text
-        # )
+        artwork = Artwork.objects.get(pk=pk)
+        comment = Comment.objects.create(
+            artwork=artwork,
+            user=request.user,
+            content=text
+        )
         
-        # return JsonResponse({
-        #     'id': comment.id,
-        #     'text': comment.text,
-        #     'user': {
-        #         'id': request.user.id,
-        #         'username': request.user.username,
-        #     },
-        #     'created_at': comment.created_at.isoformat()
-        # }, status=201)
+        # Get user avatar
+        avatar = None
+        try:
+            if hasattr(request.user, 'userprofile') and request.user.userprofile.avatar:
+                avatar = request.build_absolute_uri(request.user.userprofile.avatar.url)
+        except UserProfile.DoesNotExist:
+            pass
         
-        return JsonResponse({'message': 'Comment endpoint ready'}, status=201)
+        return JsonResponse({
+            'id': comment.id,
+            'text': comment.content,
+            'user': {
+                'id': request.user.id,
+                'username': request.user.username,
+                'avatar': avatar,
+            },
+            'created_at': comment.created_at.isoformat()
+        }, status=201)
+    except Artwork.DoesNotExist:
+        return JsonResponse({'error': 'Artwork not found'}, status=404)
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=404)
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 @csrf_exempt
@@ -242,9 +290,8 @@ def register(request):
             password=password
         )
         
-        # Create user profile if you have a Profile model
-        # from .models import Profile
-        # Profile.objects.create(user=user)
+        # Create user profile
+        UserProfile.objects.create(user=user)
         
         return JsonResponse({
             'message': 'User registered successfully',
@@ -275,17 +322,20 @@ def login_view(request):
         if user is not None:
             login(request, user)
             
-            # Generate token if using token authentication
-            # from rest_framework.authtoken.models import Token
-            # token, _ = Token.objects.get_or_create(user=user)
+            # Get user profile
+            try:
+                profile = UserProfile.objects.get(user=user)
+                avatar = request.build_absolute_uri(profile.avatar.url) if profile.avatar else None
+            except UserProfile.DoesNotExist:
+                avatar = None
             
             return JsonResponse({
                 'message': 'Login successful',
-                # 'token': token.key,
                 'user': {
                     'id': user.id,
                     'username': user.username,
                     'email': user.email,
+                    'avatar': avatar,
                 }
             })
         else:
@@ -294,8 +344,43 @@ def login_view(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def logout_view(request):
+    """Logout user"""
+    try:
+        from django.contrib.auth import logout
+        logout(request)
+        return JsonResponse({'message': 'Logout successful'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_http_methods(["GET"])
+def check_auth(request):
+    """Check if user is authenticated"""
+    if request.user.is_authenticated:
+        try:
+            profile = UserProfile.objects.get(user=request.user)
+            avatar = request.build_absolute_uri(profile.avatar.url) if profile.avatar else None
+        except UserProfile.DoesNotExist:
+            avatar = None
+        
+        return JsonResponse({
+            'authenticated': True,
+            'user': {
+                'id': request.user.id,
+                'username': request.user.username,
+                'email': request.user.email,
+                'avatar': avatar,
+            }
+        })
+    else:
+        return JsonResponse({'authenticated': False})
+
+
+@csrf_exempt
 @require_http_methods(["GET", "PUT"])
-@login_required
 def profile(request, username=None):
     """Get or update user profile"""
     try:
@@ -306,19 +391,29 @@ def profile(request, username=None):
             else:
                 user = request.user
             
-            # from .models import Profile
-            # profile = user.profile
+            # Get or create profile
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            
+            avatar = None
+            if profile.avatar:
+                avatar = request.build_absolute_uri(profile.avatar.url)
             
             return JsonResponse({
                 'id': user.id,
                 'username': user.username,
                 'email': user.email,
-                # 'avatar': request.build_absolute_uri(profile.avatar.url) if profile.avatar else None,
-                # 'bio': profile.bio,
-                # 'artworks_count': user.artworks.count(),
+                'avatar': avatar,
+                'bio': profile.bio,
+                'location': profile.location,
+                'website': profile.website,
+                'artworks_count': user.artworks.count(),
             })
         
         elif request.method == 'PUT':
+            # Check authentication for updates
+            if not request.user.is_authenticated:
+                return JsonResponse({'error': 'Authentication required'}, status=401)
+            
             # Update profile
             data = json.loads(request.body)
             user = request.user
@@ -330,11 +425,15 @@ def profile(request, username=None):
             
             user.save()
             
-            # Update profile model
-            # profile = user.profile
-            # if 'bio' in data:
-            #     profile.bio = data['bio']
-            # profile.save()
+            # Update profile
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            if 'bio' in data:
+                profile.bio = data['bio']
+            if 'location' in data:
+                profile.location = data['location']
+            if 'website' in data:
+                profile.website = data['website']
+            profile.save()
             
             return JsonResponse({
                 'message': 'Profile updated successfully',
