@@ -17,6 +17,7 @@ import Test from "./pages/Test";
 import Explore from "./pages/Explore";
 import Marketplace from "./pages/MarketPlace";
 import Reports from "./pages/Reports";
+import Community from "./pages/Community";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const App = () => (
             <Route path="/explore" element={<Explore />} />
             <Route path="/marketplace" element={<Marketplace />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/community" element={<Community />} />
 
           </Routes>
         </BrowserRouter>
