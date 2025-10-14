@@ -5,6 +5,7 @@ interface AuthContextType {
   user: User | null;
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
+  login: (username: string, password: string) => Promise<void>; // ✅ doit être ici
   isAuthenticated: boolean;
 }
 
@@ -18,6 +19,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(response.user);
   };
 
+    // 🔹 Login (connexion)
+  const login = async (username: string, password: string) => {
+    const response = await api.login({ username, password });
+    if (response.user) {
+      setUser(response.user);
+    } else {
+      // Si le backend ne renvoie pas les infos du user, on peut les récupérer via /profile/
+      try {
+        const profile = await api.getProfile();
+        setUser(profile);
+      } catch (error) {
+        console.error('Failed to fetch profile after login', error);
+      }
+    }
+  };
+
   const logout = () => {
     setUser(null);
   };
@@ -28,6 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         register,
         logout,
+        login,
         isAuthenticated: !!user,
       }}
     >
