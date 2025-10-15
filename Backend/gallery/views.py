@@ -1,7 +1,7 @@
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db.models import Q
@@ -144,7 +144,7 @@ def upload_artwork(request):
         print(f"User: {request.user}")
         print(f"Session key: {request.session.session_key}")
         
-        # Check if user is authenticated (for API, not using @login_required)
+        # Check if user is authenticated
         if not request.user.is_authenticated:
             return JsonResponse({
                 'error': 'Authentication required',
@@ -154,8 +154,6 @@ def upload_artwork(request):
                     'session_key': request.session.session_key
                 }
             }, status=401)
-        
-        from .models import Artwork, Category
         
         # Get form data
         title = request.POST.get('title')
@@ -195,6 +193,11 @@ def upload_artwork(request):
 def toggle_like(request, pk):
     """Toggle like on artwork"""
     try:
+        # Debug logging
+        print(f"LIKE REQUEST - User: {request.user}, Auth: {request.user.is_authenticated}")
+        print(f"Session key: {request.session.session_key}")
+        print(f"Cookies: {request.COOKIES.keys()}")
+        
         if not request.user.is_authenticated:
             return JsonResponse({'error': 'Authentication required'}, status=401)
         
@@ -217,6 +220,8 @@ def toggle_like(request, pk):
     except Artwork.DoesNotExist:
         return JsonResponse({'error': 'Artwork not found'}, status=404)
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
 
 
@@ -322,6 +327,19 @@ def login_view(request):
         if user is not None:
             login(request, user)
             
+            # CRITICAL: Force session to be saved and created
+            request.session.modified = True
+            request.session.save()
+            
+            # Debug logging
+            print("=" * 50)
+            print("LOGIN SUCCESS")
+            print(f"User: {user.username}")
+            print(f"Session Key: {request.session.session_key}")
+            print(f"Session Items: {dict(request.session.items())}")
+            print(f"Response will set cookies")
+            print("=" * 50)
+            
             # Get user profile
             try:
                 profile = UserProfile.objects.get(user=user)
@@ -341,6 +359,8 @@ def login_view(request):
         else:
             return JsonResponse({'error': 'Invalid credentials'}, status=401)
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
 
 
@@ -349,7 +369,7 @@ def login_view(request):
 def logout_view(request):
     """Logout user"""
     try:
-        from django.contrib.auth import logout
+        print(f"LOGOUT: User {request.user.username if request.user.is_authenticated else 'Anonymous'}")
         logout(request)
         return JsonResponse({'message': 'Logout successful'})
     except Exception as e:
@@ -359,6 +379,18 @@ def logout_view(request):
 @require_http_methods(["GET"])
 def check_auth(request):
     """Check if user is authenticated"""
+    # Debug logging
+    print("=" * 50)
+    print("CHECK AUTH REQUEST")
+    print(f"User: {request.user}")
+    print(f"Authenticated: {request.user.is_authenticated}")
+    print(f"Session Key: {request.session.session_key}")
+    print(f"Session Items: {dict(request.session.items())}")
+    print(f"Cookies received: {list(request.COOKIES.keys())}")
+    if 'sessionid' in request.COOKIES:
+        print(f"Session ID from cookie: {request.COOKIES['sessionid'][:10]}...")
+    print("=" * 50)
+    
     if request.user.is_authenticated:
         try:
             profile = UserProfile.objects.get(user=request.user)
@@ -389,6 +421,8 @@ def profile(request, username=None):
             if username:
                 user = User.objects.get(username=username)
             else:
+                if not request.user.is_authenticated:
+                    return JsonResponse({'error': 'Authentication required'}, status=401)
                 user = request.user
             
             # Get or create profile
@@ -446,4 +480,6 @@ def profile(request, username=None):
     except User.DoesNotExist:
         return JsonResponse({'error': 'User not found'}, status=404)
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
