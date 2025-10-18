@@ -83,7 +83,7 @@ export const api = {
     const url = `${API_BASE_URL}/${queryString ? `?${queryString}` : ''}`;
     
     const response = await fetch(url, {
-      credentials: 'include', // Important for session auth
+      credentials: 'include',
     });
     if (!response.ok) throw new Error('Failed to fetch artworks');
     const data = await response.json();
@@ -232,6 +232,24 @@ export const api = {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to update profile');
+    }
+    return response.json();
+  },
+
+  // Upload avatar
+  async uploadAvatar(file: File): Promise<{ message: string; avatar: string }> {
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    const response = await fetch(`${API_BASE_URL}/profile/avatar/`, {
+      method: 'POST',
+      headers: getAuthHeader(),
+      credentials: 'include',
+      body: formData,
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to upload avatar');
     }
     return response.json();
   },

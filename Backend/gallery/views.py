@@ -410,7 +410,52 @@ def check_auth(request):
     else:
         return JsonResponse({'authenticated': False})
 
-
+@csrf_exempt
+@require_http_methods(["POST"])
+def upload_avatar(request):
+    """Upload or update user avatar"""
+    try:
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        if 'avatar' not in request.FILES:
+            return JsonResponse({'error': 'No avatar file provided'}, status=400)
+        
+        avatar_file = request.FILES['avatar']
+        
+        # Validate file size (max 5MB)
+        if avatar_file.size > 5 * 1024 * 1024:
+            return JsonResponse({'error': 'File too large. Maximum size is 5MB'}, status=400)
+        
+        # Validate file type
+        allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+        if avatar_file.content_type not in allowed_types:
+            return JsonResponse({'error': 'Invalid file type. Only images are allowed'}, status=400)
+        
+        user = request.user
+        
+        # Get or create profile
+        profile, created = UserProfile.objects.get_or_create(user=user)
+        
+        # Delete old avatar if exists
+        if profile.avatar:
+            profile.avatar.delete(save=False)
+        
+        # Save new avatar
+        profile.avatar = avatar_file
+        profile.save()
+        
+        avatar_url = request.build_absolute_uri(profile.avatar.url)
+        
+        return JsonResponse({
+            'message': 'Avatar uploaded successfully',
+            'avatar': avatar_url
+        })
+        
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
 @csrf_exempt
 @require_http_methods(["GET", "PUT"])
 def profile(request, username=None):

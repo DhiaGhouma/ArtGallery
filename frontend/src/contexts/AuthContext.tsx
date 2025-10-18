@@ -22,22 +22,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Check authentication status on mount
   useEffect(() => {
-    const checkAuthentication = async () => {
-      try {
-        const response = await api.checkAuth();
-        if (response.authenticated && response.user) {
-          setUser(response.user);
-        }
-      } catch (error) {
-        console.error('Failed to check authentication:', error);
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     checkAuthentication();
   }, []);
+
+  const checkAuthentication = async () => {
+    try {
+      const response = await api.checkAuth();
+      if (response.authenticated && response.user) {
+        setUser(response.user);
+      }
+    } catch (error) {
+      console.error('Failed to check authentication:', error);
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const register = async (username: string, email: string, password: string) => {
     const response = await api.register({ username, email, password });
@@ -70,6 +70,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  // Add refresh user function
+  const refreshUser = async () => {
+    try {
+      const profile = await api.getProfile();
+      setUser(profile);
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -79,6 +89,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         login,
         isAuthenticated: !!user,
         loading,
+        refreshUser,
       }}
     >
       {children}
