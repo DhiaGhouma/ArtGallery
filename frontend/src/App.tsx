@@ -18,7 +18,7 @@ import Test from "./pages/Test";
 import Explore from "./pages/Explore";
 import Marketplace from "./pages/MarketPlace";
 import Community from "./pages/Community";
-
+import About from "./pages/About";
 const queryClient = new QueryClient();
 
 function AppRoutes() {
@@ -50,6 +50,7 @@ function AppRoutes() {
         <Route path="/explore" element={<Explore />} />
         <Route path="/marketplace" element={<Marketplace />} />
         <Route path="/community" element={<Community />} />
+        <Route path="/about" element={<About />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
