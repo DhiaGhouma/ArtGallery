@@ -6,6 +6,7 @@ interface AuthContextType {
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   login: (username: string, password: string) => Promise<void>;
+  refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
   loading: boolean;
 }
@@ -40,23 +41,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const register = async (username: string, email: string, password: string) => {
-    const response = await api.register({ username, email, password });
-    setUser(response.user);
+    await api.register({ username, email, password });
+    
+    // **FIX: Check authentication after registration to get complete user data**
+    // This ensures the session cookie is properly set and user state is updated
+    const authResponse = await api.checkAuth();
+    if (authResponse.authenticated && authResponse.user) {
+      setUser(authResponse.user);
+    }
   };
 
   const login = async (username: string, password: string) => {
-    const response = await api.login({ username, password });
-    if (response.user) {
-      setUser(response.user);
-    } else {
-      // Fallback: fetch profile if user data not returned
-      try {
-        const profile = await api.getProfile();
-        setUser(profile);
-      } catch (error) {
-        console.error('Failed to fetch profile after login', error);
-        throw error;
-      }
+    await api.login({ username, password });
+    
+    // **IMPROVEMENT: Always use checkAuth for consistency**
+    // This ensures we get the complete user profile data
+    const authResponse = await api.checkAuth();
+    if (authResponse.authenticated && authResponse.user) {
+      setUser(authResponse.user);
     }
   };
 

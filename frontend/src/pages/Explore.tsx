@@ -18,9 +18,17 @@ const Explore = () => {
   const filters = [
     { id: 'trending', label: 'Most Liked', icon: TrendingUp },
     { id: 'newest', label: 'Newest', icon: Clock },
-    { id: 'ai-picks', label: 'AI Picks', icon: Sparkles },
+    { id: 'generate', label: 'Generate your own', icon: Sparkles, isLink: true },
     { id: 'abstract', label: 'Abstract', icon: Zap },
   ];
+
+  const handleFilterClick = (filterId, isLink) => {
+    if (filterId === 'generate' && isLink) {
+      window.location.href = 'http://localhost:8081/ai-image-modifier';
+    } else {
+      setFilter(filterId);
+    }
+  };
 
   const loadArtworks = useCallback(async (pageNum, reset = false) => {
     if (loading) return;
@@ -56,12 +64,14 @@ const Explore = () => {
   }, [filter, loading]);
 
   useEffect(() => {
-    setPage(1);
-    loadArtworks(1, true);
+    if (filter !== 'generate') {
+      setPage(1);
+      loadArtworks(1, true);
+    }
   }, [filter]);
 
   useEffect(() => {
-    if (page > 1) loadArtworks(page);
+    if (page > 1 && filter !== 'generate') loadArtworks(page);
   }, [page, loadArtworks]);
 
   useEffect(() => {
@@ -158,10 +168,10 @@ const Explore = () => {
 
           {/* Filters */}
           <div className="flex flex-wrap justify-center gap-4 mb-12">
-            {filters.map(({ id, label, icon: Icon }) => (
+            {filters.map(({ id, label, icon: Icon, isLink }) => (
               <button
                 key={id}
-                onClick={() => setFilter(id)}
+                onClick={() => handleFilterClick(id, isLink)}
                 className={`
                   flex items-center gap-2 px-6 py-3 rounded-full font-medium
                   transition-all duration-300 backdrop-blur-sm
@@ -195,7 +205,7 @@ const Explore = () => {
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                     loading="lazy"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://via.placeholder.com/600x600?text=Image+Not+Found';
+                      e.target.src = 'https://via.placeholder.com/600x600?text=Image+Not+Found';
                     }}
                   />
                   

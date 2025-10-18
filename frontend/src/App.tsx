@@ -19,6 +19,7 @@ import Explore from "./pages/Explore";
 import Marketplace from "./pages/MarketPlace";
 import Community from "./pages/Community";
 import About from "./pages/About";
+import AIImageModifier from "./pages/AiImageModifier";
 const queryClient = new QueryClient();
 
 function AppRoutes() {
@@ -52,6 +53,7 @@ function AppRoutes() {
         <Route path="/community" element={<Community />} />
         <Route path="/about" element={<About />} />
         <Route path="*" element={<NotFound />} />
+        <Route path="/ai-image-modifier" element={<AIImageModifier />} />
       </Routes>
     </>
   );

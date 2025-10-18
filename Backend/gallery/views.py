@@ -298,6 +298,21 @@ def register(request):
         # Create user profile
         UserProfile.objects.create(user=user)
         
+        # **CRITICAL FIX: Automatically log in the user after registration**
+        login(request, user)
+        
+        # Force session to be saved
+        request.session.modified = True
+        request.session.save()
+        
+        # Debug logging
+        print("=" * 50)
+        print("REGISTRATION + AUTO-LOGIN SUCCESS")
+        print(f"User: {user.username}")
+        print(f"Session Key: {request.session.session_key}")
+        print(f"Session Items: {dict(request.session.items())}")
+        print("=" * 50)
+        
         return JsonResponse({
             'message': 'User registered successfully',
             'user': {
@@ -307,6 +322,8 @@ def register(request):
             }
         }, status=201)
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
 
 
