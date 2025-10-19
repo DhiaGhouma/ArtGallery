@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Heart, Eye, MessageCircle, ArrowLeft, Send } from 'lucide-react';
@@ -46,7 +47,10 @@ const ArtworkDetail = () => {
   const loadRelated = async () => {
     try {
       const response = await api.getArtworks({ category: artwork?.category });
-      setRelated(response.results.slice(0, 4));
+      const items = Array.isArray(response)
+        ? response
+        : ((response as { results?: Artwork[] }).results || []);
+      setRelated(items.slice(0, 4));
     } catch (error) {
       console.error('Failed to load related artworks');
     }
@@ -66,7 +70,7 @@ const ArtworkDetail = () => {
       const result = await api.likeArtwork(Number(id));
       setIsLiked(result.liked);
       if (artwork) {
-        setArtwork({ ...artwork, likes: result.likes });
+        setArtwork(prev => (prev ? ({ ...prev, likes_count: result.likes_count } as any) : prev));
       }
     } catch (error) {
       toast({
@@ -195,7 +199,7 @@ const ArtworkDetail = () => {
                 className={`flex items-center gap-2 ${isLiked ? 'text-secondary border-secondary' : ''} hover-glow`}
               >
                 <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
-                <span>{artwork.likes}</span>
+                <span>{artwork.likes_count}</span>
               </Button>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Eye className="w-5 h-5" />
