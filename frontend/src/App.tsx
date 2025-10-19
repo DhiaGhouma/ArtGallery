@@ -55,6 +55,7 @@ function AppRoutes() {
         <Route path="/about" element={<About />} />
         <Route path="*" element={<NotFound />} />
         <Route path="/ai-image-modifier" element={<AIImageModifier />} />
+        <Route path="/reports" element={<Reports />} />
       </Routes>
     </>
   );

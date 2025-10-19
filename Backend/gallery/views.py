@@ -69,7 +69,82 @@ def index(request):
         return JsonResponse(data, safe=False)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+@login_required
+def report_artwork(request, artwork_id):
+    artwork = get_object_or_404(Artwork, id=artwork_id)
 
+    if request.method == 'POST':
+        form = ReportForm(request.POST)
+        if form.is_valid():
+            report = form.save(commit=False)
+            report.user = request.user
+            report.artwork = artwork
+            report.save()
+            messages.success(request, "Report submitted successfully.")
+            return redirect(artwork.get_absolute_url())
+    else:
+        form = ReportForm(initial={'artwork': artwork})
+
+    return render(request, 'reports/report_form.html', {'form': form, 'artwork': artwork})
+
+
+@login_required
+def report_comment(request, comment_id):
+    comment = get_object_or_404(Comment, id=comment_id)
+
+    if request.method == 'POST':
+        form = ReportForm(request.POST)
+        if form.is_valid():
+            report = form.save(commit=False)
+            report.user = request.user
+            report.comment = comment
+            report.save()
+            messages.success(request, "Report submitted successfully.")
+            return redirect(comment.artwork.get_absolute_url())
+    else:
+        form = ReportForm(initial={'comment': comment})
+
+    return render(request, 'reports/report_form.html', {'form': form, 'comment': comment})
+
+
+# Admin view pour lister tous les reports
+from django.contrib.admin.views.decorators import staff_member_required
+
+@staff_member_required
+def reports_list(request):
+    reports = Report.objects.all().order_by('-created_at')
+    return render(request, 'reports/report_list.html', {'reports': reports})
+
+@staff_member_required
+def take_action(request, report_id):
+    """
+    Permet à un staff/admin de prendre une action sur un report.
+    Actions possibles via POST:
+    - resolve: marque le report comme résolu
+    - delete_artwork: supprime l'artwork signalé
+    - delete_comment: supprime le commentaire signalé
+    """
+    report = get_object_or_404(Report, id=report_id)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'resolve':
+            report.resolved = True
+            report.save()
+            return JsonResponse({'status': 'success', 'message': 'Report resolved'})
+        elif action == 'delete_artwork':
+            report.artwork.delete()
+            report.resolved = True
+            report.save()
+            return JsonResponse({'status': 'success', 'message': 'Artwork deleted'})
+        elif action == 'delete_comment' and report.comment:
+            report.comment.delete()
+            report.resolved = True
+            report.save()
+            return JsonResponse({'status': 'success', 'message': 'Comment deleted'})
+        else:
+            return JsonResponse({'status': 'error', 'message': 'Invalid action'})
+    return JsonResponse({'status': 'error', 'message': 'POST method required'})
 
 @require_http_methods(["GET"])
 def artwork_detail(request, pk):

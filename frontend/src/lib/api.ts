@@ -272,4 +272,57 @@ export const api = {
     }
     return response.json();
   },
+// Reports
+  async getReports(): Promise<Report[]> {
+    const response = await fetch(`${API_BASE_URL}/reports/`, {
+      headers: getAuthHeader(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch reports');
+    return response.json();
+  },
+
+  async createReport(data: {
+    artwork_id: number;
+    comment_id?: number;
+    reason: string;
+  }): Promise<Report> {
+    const response = await fetch(`${API_BASE_URL}/reports/`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to create report');
+    return response.json();
+  },
+
+  async resolveReport(id: number): Promise<Report> {
+    const response = await fetch(`${API_BASE_URL}/reports/${id}/resolve/`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!response.ok) throw new Error('Failed to resolve report');
+    return response.json();
+  },
+
+  async deleteArtwork(id: number): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/artworks/${id}/`, {
+      method: 'DELETE',
+      headers: getAuthHeader(),
+    });
+    if (!response.ok) throw new Error('Failed to delete artwork');
+  },
+
+  async deleteComment(id: number): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/comments/${id}/`, {
+      method: 'DELETE',
+      headers: getAuthHeader(),
+    });
+    if (!response.ok) throw new Error('Failed to delete comment');
+  },
 };
