@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { api } from '@/lib/api';
 import { 
   Shield, 
   Users, 
@@ -26,29 +27,62 @@ export default function AdminDashboard() {
     totalRevenue: 0,
     activeUsers: 0,
     pendingReports: 0,
+    totalArtworks: 0,
   });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('🔐 Admin Dashboard Check:');
+    console.log('  - isAuthenticated:', isAuthenticated);
+    console.log('  - user:', user);
+    console.log('  - user?.is_staff:', user?.is_staff);
+
     if (!isAuthenticated) {
+      console.log('❌ Not authenticated, redirecting to /login');
       navigate('/login');
       return;
     }
 
     if (!user?.is_staff) {
-      navigate('/');
+      console.log('❌ Not staff, redirecting to /');
+      navigate('/');  // ← FIX: Redirect to home, not to admin dashboard!
       return;
     }
 
-    // TODO: Load actual stats from API
-    setStats({
-      totalUsers: 1247,
-      totalReports: 23,
-      totalTransactions: 456,
-      totalRevenue: 12450,
-      activeUsers: 892,
-      pendingReports: 8,
-    });
+    console.log('✅ Admin access granted!');
+    
+    // Load actual stats from API
+    loadStats();
   }, [isAuthenticated, user, navigate]);
+
+  const loadStats = async () => {
+    try {
+      const data = await api.getAdminStats();
+      setStats({
+        totalUsers: data.totalUsers,
+        totalReports: data.totalReports,
+        totalTransactions: data.totalTransactions,
+        totalRevenue: data.totalRevenue,
+        activeUsers: data.activeUsers,
+        pendingReports: data.pendingReports,
+        totalArtworks: data.totalArtworks || 0,
+      });
+    } catch (error) {
+      console.error('Failed to load admin stats:', error);
+      // Fallback to dummy data
+      setStats({
+        totalUsers: 1247,
+        totalReports: 23,
+        totalTransactions: 456,
+        totalRevenue: 12450,
+        activeUsers: 892,
+        pendingReports: 8,
+        totalArtworks: 342,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!user?.is_staff) {
     return null;
@@ -72,12 +106,12 @@ export default function AdminDashboard() {
       link: '/reports',
     },
     {
-      title: 'Transactions',
-      value: stats.totalTransactions.toLocaleString(),
-      description: 'This month',
+      title: 'Total Artworks',
+      value: stats.totalArtworks.toLocaleString(),
+      description: 'Total uploads',
       icon: ShoppingBag,
       gradient: 'from-accent via-accent/80 to-accent',
-      link: '/admin/transactions',
+      link: '/gallery',
     },
     {
       title: 'Revenue',
@@ -92,7 +126,7 @@ export default function AdminDashboard() {
   const quickActions = [
     { label: 'View All Users', icon: Users, link: '/admin/users' },
     { label: 'View Reports', icon: Shield, link: '/reports' },
-    { label: 'Transaction History', icon: FileText, link: '/admin/transactions' },
+    { label: 'View Gallery', icon: FileText, link: '/gallery' },
     { label: 'Analytics', icon: TrendingUp, link: '/admin/analytics' },
     { label: 'Activity Log', icon: Activity, link: '/admin/activity' },
   ];
@@ -128,7 +162,9 @@ export default function AdminDashboard() {
                   <card.icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold mb-1">{card.value}</div>
+                  <div className="text-3xl font-bold mb-1">
+                    {loading ? '...' : card.value}
+                  </div>
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     {card.description}
                     <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />

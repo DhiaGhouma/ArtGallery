@@ -33,13 +33,14 @@ export interface Comment {
   };
   created_at: string;
 }
+
 export interface Report {
   id: number;
   reporter: {
     id: number;
     username: string;
   };
-  artwork: {
+  artwork?: {
     id: number;
     title: string;
     image: string;
@@ -49,7 +50,9 @@ export interface Report {
     text: string;
   };
   reason: string;
+  description?: string;
   is_resolved: boolean;
+  resolved?: boolean;
   created_at: string;
 }
 
@@ -57,6 +60,7 @@ export interface User {
   id: number;
   username: string;
   email: string;
+  is_staff: boolean;
   avatar?: string;
   bio?: string;
   location?: string;
@@ -64,8 +68,23 @@ export interface User {
   artworks_count?: number;
 }
 
+export interface AuthResponse {
+  authenticated: boolean;
+  user?: User;
+}
+
+export interface LoginResponse {
+  message: string;
+  user: User;
+}
+
+export interface RegisterResponse {
+  message: string;
+  user: User;
+}
+
 // Helper to get CSRF token from cookies
-const getCookie = (name: string) => {
+const getCookie = (name: string): string | null => {
   let cookieValue = null;
   if (document.cookie && document.cookie !== '') {
     const cookies = document.cookie.split(';');
@@ -80,47 +99,112 @@ const getCookie = (name: string) => {
   return cookieValue;
 };
 
-// Auth helper - Django uses session auth, not token by default
-const getAuthHeader = () => {
+// Auth helper - Django uses session auth
+const getAuthHeader = (): HeadersInit => {
   const csrftoken = getCookie('csrftoken');
-  const headers: HeadersInit = {
+  return {
     'X-CSRFToken': csrftoken || '',
   };
-  return headers;
 };
 
 // API functions
 export const api = {
-  // Get all artworks
-  async getArtworks(params?: { search?: string; category?: string; style?: string }) {
+  // ============ Artworks ============
+  
+  async getArtworks(params?: { 
+    search?: string; 
+    category?: string; 
+    style?: string;
+    featured?: boolean;
+  }): Promise<Artwork[]> {
     const queryParams = new URLSearchParams();
     if (params?.search) queryParams.append('search', params.search);
-    if (params?.category && params.category !== 'all') queryParams.append('category', params.category);
-    if (params?.style && params.style !== 'all') queryParams.append('style', params.style);
+    if (params?.category && params.category !== 'all') {
+      queryParams.append('category', params.category);
+    }
+    if (params?.style && params.style !== 'all') {
+      queryParams.append('style', params.style);
+    }
+    if (params?.featured) {
+      queryParams.append('featured', 'true');
+    }
 
     const queryString = queryParams.toString();
-    const url = `${API_BASE_URL}/${queryString ? `?${queryString}` : ''}`;
+    const url = `${API_BASE_URL}/artworks/${queryString ? `?${queryString}` : ''}`;
     
     const response = await fetch(url, {
       credentials: 'include',
     });
-    if (!response.ok) throw new Error('Failed to fetch artworks');
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch artworks');
+    }
+    
     const data = await response.json();
     return Array.isArray(data) ? data : [];
   },
 
-  // Get single artwork
   async getArtwork(id: number): Promise<Artwork> {
-    const response = await fetch(`${API_BASE_URL}/artwork/${id}/`, {
+    const response = await fetch(`${API_BASE_URL}/artworks/${id}/`, {
       credentials: 'include',
     });
-    if (!response.ok) throw new Error('Failed to fetch artwork');
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch artwork');
+    }
+    
     return response.json();
   },
 
-  // Like/Unlike an artwork
+  async uploadArtwork(formData: FormData): Promise<{ id: number; message: string }> {
+    const response = await fetch(`${API_BASE_URL}/artworks/upload/`, {
+      method: 'POST',
+      headers: getAuthHeader(),
+      credentials: 'include',
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to upload artwork');
+    }
+    
+    return response.json();
+  },
+
+  async updateArtwork(id: number, formData: FormData): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/artworks/${id}/`, {
+      method: 'PUT',
+      headers: getAuthHeader(),
+      credentials: 'include',
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update artwork');
+    }
+    
+    return response.json();
+  },
+
+  async deleteArtwork(id: number): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/artworks/${id}/`, {
+      method: 'DELETE',
+      headers: getAuthHeader(),
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to delete artwork');
+    }
+  },
+
+  // ============ Likes ============
+  
   async likeArtwork(id: number): Promise<{ liked: boolean; likes_count: number }> {
-    const response = await fetch(`${API_BASE_URL}/artwork/${id}/like/`, {
+    const response = await fetch(`${API_BASE_URL}/artworks/${id}/like/`, {
       method: 'POST',
       headers: {
         ...getAuthHeader(),
@@ -128,31 +212,19 @@ export const api = {
       },
       credentials: 'include',
     });
+    
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to like artwork');
     }
+    
     return response.json();
   },
 
-  // Upload artwork
-  async uploadArtwork(formData: FormData): Promise<{ id: number; message: string }> {
-    const response = await fetch(`${API_BASE_URL}/upload/`, {
-      method: 'POST',
-      headers: getAuthHeader(),
-      credentials: 'include',
-      body: formData,
-    });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to upload artwork');
-    }
-    return response.json();
-  },
-
-  // Comment on artwork
+  // ============ Comments ============
+  
   async commentOnArtwork(id: number, text: string): Promise<Comment> {
-    const response = await fetch(`${API_BASE_URL}/artwork/${id}/comment/`, {
+    const response = await fetch(`${API_BASE_URL}/artworks/${id}/comment/`, {
       method: 'POST',
       headers: {
         ...getAuthHeader(),
@@ -161,16 +233,55 @@ export const api = {
       credentials: 'include',
       body: JSON.stringify({ text }),
     });
+    
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to add comment');
     }
+    
     return response.json();
   },
 
-  // Auth
-  async register(data: { username: string; email: string; password: string }): Promise<{ message: string; user: User }> {
-    const response = await fetch(`${API_BASE_URL}/register/`, {
+  async updateComment(id: number, text: string): Promise<Comment> {
+    const response = await fetch(`${API_BASE_URL}/comments/${id}/`, {
+      method: 'PUT',
+      headers: {
+        ...getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ text }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update comment');
+    }
+    
+    return response.json();
+  },
+
+  async deleteComment(id: number): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/comments/${id}/`, {
+      method: 'DELETE',
+      headers: getAuthHeader(),
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to delete comment');
+    }
+  },
+
+  // ============ Authentication ============
+  
+  async register(data: { 
+    username: string; 
+    email: string; 
+    password: string;
+  }): Promise<RegisterResponse> {
+    const response = await fetch(`${API_BASE_URL}/auth/register/`, {
       method: 'POST',
       headers: {
         ...getAuthHeader(),
@@ -179,15 +290,20 @@ export const api = {
       credentials: 'include',
       body: JSON.stringify(data),
     });
+    
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Registration failed');
     }
+    
     return response.json();
   },
 
-  async login(data: { username: string; password: string }): Promise<{ message: string; user: User }> {
-    const response = await fetch(`${API_BASE_URL}/login/`, {
+  async login(data: { 
+    username: string; 
+    password: string;
+  }): Promise<LoginResponse> {
+    const response = await fetch(`${API_BASE_URL}/auth/login/`, {
       method: 'POST',
       headers: {
         ...getAuthHeader(),
@@ -196,50 +312,68 @@ export const api = {
       credentials: 'include',
       body: JSON.stringify(data),
     });
+    
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Login failed');
     }
+    
     return response.json();
   },
 
-  async logout() {
-    const response = await fetch(`${API_BASE_URL}/logout/`, {
+  async logout(): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/auth/logout/`, {
       method: 'POST',
       headers: getAuthHeader(),
       credentials: 'include',
     });
-    if (!response.ok) throw new Error('Failed to logout');
+    
+    if (!response.ok) {
+      throw new Error('Failed to logout');
+    }
+    
     return response.json();
   },
 
-  // Check authentication status
-  async checkAuth(): Promise<{ authenticated: boolean; user?: User }> {
-    const response = await fetch(`${API_BASE_URL}/check-auth/`, {
+  async checkAuth(): Promise<AuthResponse> {
+    const response = await fetch(`${API_BASE_URL}/auth/check/`, {
       credentials: 'include',
     });
-    if (!response.ok) throw new Error('Failed to check authentication');
+    
+    if (!response.ok) {
+      throw new Error('Failed to check authentication');
+    }
+    
     return response.json();
   },
 
-  // Profile
+  // ============ Profile ============
+  
   async getProfile(username?: string): Promise<User> {
     const url = username 
-      ? `${API_BASE_URL}/profile/${username}/`
-      : `${API_BASE_URL}/profile/`;
+      ? `${API_BASE_URL}/users/${username}/`
+      : `${API_BASE_URL}/auth/profile/`;
     
     const response = await fetch(url, {
       credentials: 'include',
     });
+    
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to fetch profile');
     }
+    
     return response.json();
   },
 
-  async updateProfile(data: Partial<{ username: string; email: string; bio?: string; location?: string; website?: string }>): Promise<{ message: string; user: User }> {
-    const response = await fetch(`${API_BASE_URL}/profile/`, {
+  async updateProfile(data: Partial<{ 
+    username: string; 
+    email: string; 
+    bio?: string; 
+    location?: string; 
+    website?: string;
+  }>): Promise<{ message: string; user: User }> {
+    const response = await fetch(`${API_BASE_URL}/auth/profile/`, {
       method: 'PUT',
       headers: {
         ...getAuthHeader(),
@@ -248,43 +382,54 @@ export const api = {
       credentials: 'include',
       body: JSON.stringify(data),
     });
+    
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to update profile');
     }
+    
     return response.json();
   },
 
-  // Upload avatar
   async uploadAvatar(file: File): Promise<{ message: string; avatar: string }> {
     const formData = new FormData();
     formData.append('avatar', file);
 
-    const response = await fetch(`${API_BASE_URL}/profile/avatar/`, {
+    const response = await fetch(`${API_BASE_URL}/auth/profile/avatar/`, {
       method: 'POST',
       headers: getAuthHeader(),
       credentials: 'include',
       body: formData,
     });
+    
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to upload avatar');
     }
+    
     return response.json();
   },
-// Reports
+
+  // ============ Reports ============
+  
   async getReports(): Promise<Report[]> {
     const response = await fetch(`${API_BASE_URL}/reports/`, {
+      credentials: 'include',
       headers: getAuthHeader(),
     });
-    if (!response.ok) throw new Error('Failed to fetch reports');
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch reports');
+    }
+    
     return response.json();
   },
 
   async createReport(data: {
-    artwork_id: number;
+    artwork_id?: number;
     comment_id?: number;
     reason: string;
+    description?: string;
   }): Promise<Report> {
     const response = await fetch(`${API_BASE_URL}/reports/`, {
       method: 'POST',
@@ -292,9 +437,15 @@ export const api = {
         ...getAuthHeader(),
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error('Failed to create report');
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to create report');
+    }
+    
     return response.json();
   },
 
@@ -305,24 +456,188 @@ export const api = {
         ...getAuthHeader(),
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
     });
-    if (!response.ok) throw new Error('Failed to resolve report');
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to resolve report');
+    }
+    
     return response.json();
   },
 
-  async deleteArtwork(id: number): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/artworks/${id}/`, {
+  async deleteReport(id: number): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/reports/${id}/`, {
       method: 'DELETE',
       headers: getAuthHeader(),
+      credentials: 'include',
     });
-    if (!response.ok) throw new Error('Failed to delete artwork');
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to delete report');
+    }
   },
 
-  async deleteComment(id: number): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/comments/${id}/`, {
-      method: 'DELETE',
+  // ============ Admin - Users ============
+  
+  async getAllUsers(params?: {
+    search?: string;
+    is_staff?: boolean;
+    is_active?: boolean;
+  }): Promise<User[]> {
+    const queryParams = new URLSearchParams();
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.is_staff !== undefined) {
+      queryParams.append('is_staff', String(params.is_staff));
+    }
+    if (params?.is_active !== undefined) {
+      queryParams.append('is_active', String(params.is_active));
+    }
+
+    const queryString = queryParams.toString();
+    const url = `${API_BASE_URL}/admin/users/${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await fetch(url, {
+      credentials: 'include',
       headers: getAuthHeader(),
     });
-    if (!response.ok) throw new Error('Failed to delete comment');
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch users');
+    }
+    
+    return response.json();
+  },
+
+  async updateUserStatus(userId: number, data: {
+    is_active?: boolean;
+    is_staff?: boolean;
+  }): Promise<{ message: string; user: User }> {
+    const response = await fetch(`${API_BASE_URL}/admin/users/${userId}/`, {
+      method: 'PATCH',
+      headers: {
+        ...getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update user status');
+    }
+    
+    return response.json();
+  },
+
+  async deleteUser(userId: number): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/admin/users/${userId}/`, {
+      method: 'DELETE',
+      headers: getAuthHeader(),
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to delete user');
+    }
+  },
+
+  // ============ Admin - Analytics ============
+  
+  async getAdminStats(): Promise<{
+    totalUsers: number;
+    activeUsers: number;
+    totalArtworks: number;
+    totalReports: number;
+    pendingReports: number;
+    totalTransactions: number;
+    totalRevenue: number;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/admin/stats/`, {
+      credentials: 'include',
+      headers: getAuthHeader(),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch admin stats');
+    }
+    
+    return response.json();
+  },
+
+  async getAnalytics(period?: 'week' | 'month' | 'year'): Promise<{
+    userGrowth: Array<{ date: string; count: number }>;
+    artworkGrowth: Array<{ date: string; count: number }>;
+    revenueGrowth: Array<{ date: string; amount: number }>;
+  }> {
+    const queryParams = new URLSearchParams();
+    if (period) queryParams.append('period', period);
+
+    const queryString = queryParams.toString();
+    const url = `${API_BASE_URL}/admin/analytics/${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await fetch(url, {
+      credentials: 'include',
+      headers: getAuthHeader(),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch analytics');
+    }
+    
+    return response.json();
+  },
+
+  // ============ Admin - Activity Log ============
+  
+  async getActivityLog(params?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<Array<{
+    id: number;
+    action: string;
+    user: { id: number; username: string };
+    timestamp: string;
+    details?: string;
+  }>> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.append('limit', String(params.limit));
+    if (params?.offset) queryParams.append('offset', String(params.offset));
+
+    const queryString = queryParams.toString();
+    const url = `${API_BASE_URL}/admin/activity/${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await fetch(url, {
+      credentials: 'include',
+      headers: getAuthHeader(),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch activity log');
+    }
+    
+    return response.json();
+  },
+
+  // ============ Categories ============
+  
+  async getCategories(): Promise<Array<{
+    id: number;
+    name: string;
+    description?: string;
+  }>> {
+    const response = await fetch(`${API_BASE_URL}/categories/`, {
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch categories');
+    }
+    
+    return response.json();
   },
 };
