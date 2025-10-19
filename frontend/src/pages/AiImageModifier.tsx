@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useId, useLayoutEffect } from 'react';
-import { Upload, Wand2, Download, Loader, AlertCircle, Sparkles, X } from 'lucide-react';
+import {  Wand2, Download, Loader, AlertCircle, Sparkles, X } from 'lucide-react';
 
 // ElectricBorder Component
 const ElectricBorder = ({ children, color = '#5227FF', speed = 1, chaos = 1, thickness = 2, className, style }) => {

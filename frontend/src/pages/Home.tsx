@@ -85,7 +85,7 @@ const Home = () => {
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background" />
         
         {/* Curved Loop Welcome Message */}
-        {/* <div className="absolute top-10 left-0 right-0 z-0 opacity-30">
+         {/* <div className="absolute top-10 left-0 right-0 z-0 opacity-30">
           <CurvedLoop 
             marqueeText="Welcome to Digital Art Gallery ✦ Discover ✦ Create ✦ Inspire ✦"
             speed={2}
@@ -100,7 +100,7 @@ const Home = () => {
           <div className="inline-block mb-4">
             <Sparkles className="w-12 h-12 text-primary animate-float mx-auto" />
           </div>
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 gradient-text">
+          <h1 className="text-5xl md:text-7xl font-bold mb-10 gradient-text">
             Discover Digital Masterpieces
           </h1>
           <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-2xl mx-auto">
