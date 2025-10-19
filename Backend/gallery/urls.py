@@ -11,6 +11,7 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('check-auth/', views.check_auth, name='check_auth'),
+    path('profile/avatar/', views.upload_avatar, name='upload_avatar'),  
     path('profile/', views.profile, name='profile'),
     path('profile/<str:username>/', views.profile, name='user_profile'),
     # Reports endpoints

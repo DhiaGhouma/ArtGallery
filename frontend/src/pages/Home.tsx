@@ -85,7 +85,7 @@ const Home = () => {
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background" />
         
         {/* Curved Loop Welcome Message */}
-        <div className="absolute top-10 left-0 right-0 z-0 opacity-30">
+        {/* <div className="absolute top-10 left-0 right-0 z-0 opacity-30">
           <CurvedLoop 
             marqueeText="Welcome to Digital Art Gallery ✦ Discover ✦ Create ✦ Inspire ✦"
             speed={2}
@@ -94,7 +94,7 @@ const Home = () => {
             interactive={true}
             className="text-primary/50"
           />
-        </div>
+        </div> */}
 
         <div className="container mx-auto text-center relative z-10 animate-fade-in">
           <div className="inline-block mb-4">

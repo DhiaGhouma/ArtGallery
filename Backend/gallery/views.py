@@ -3,7 +3,7 @@ from .models import Artwork, Report, Comment  # ou le chemin correct si models.p
 from .forms import ReportForm
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db.models import Q
@@ -149,7 +149,7 @@ def upload_artwork(request):
         print(f"User: {request.user}")
         print(f"Session key: {request.session.session_key}")
         
-        # Check if user is authenticated (for API, not using @login_required)
+        # Check if user is authenticated
         if not request.user.is_authenticated:
             return JsonResponse({
                 'error': 'Authentication required',
@@ -159,8 +159,6 @@ def upload_artwork(request):
                     'session_key': request.session.session_key
                 }
             }, status=401)
-        
-        from .models import Artwork, Category
         
         # Get form data
         title = request.POST.get('title')
@@ -200,6 +198,11 @@ def upload_artwork(request):
 def toggle_like(request, pk):
     """Toggle like on artwork"""
     try:
+        # Debug logging
+        print(f"LIKE REQUEST - User: {request.user}, Auth: {request.user.is_authenticated}")
+        print(f"Session key: {request.session.session_key}")
+        print(f"Cookies: {request.COOKIES.keys()}")
+        
         if not request.user.is_authenticated:
             return JsonResponse({'error': 'Authentication required'}, status=401)
         
@@ -222,6 +225,8 @@ def toggle_like(request, pk):
     except Artwork.DoesNotExist:
         return JsonResponse({'error': 'Artwork not found'}, status=404)
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
 
 
@@ -298,6 +303,21 @@ def register(request):
         # Create user profile
         UserProfile.objects.create(user=user)
         
+        # **CRITICAL FIX: Automatically log in the user after registration**
+        login(request, user)
+        
+        # Force session to be saved
+        request.session.modified = True
+        request.session.save()
+        
+        # Debug logging
+        print("=" * 50)
+        print("REGISTRATION + AUTO-LOGIN SUCCESS")
+        print(f"User: {user.username}")
+        print(f"Session Key: {request.session.session_key}")
+        print(f"Session Items: {dict(request.session.items())}")
+        print("=" * 50)
+        
         return JsonResponse({
             'message': 'User registered successfully',
             'user': {
@@ -307,6 +327,8 @@ def register(request):
             }
         }, status=201)
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
 
 
@@ -327,6 +349,19 @@ def login_view(request):
         if user is not None:
             login(request, user)
             
+            # CRITICAL: Force session to be saved and created
+            request.session.modified = True
+            request.session.save()
+            
+            # Debug logging
+            print("=" * 50)
+            print("LOGIN SUCCESS")
+            print(f"User: {user.username}")
+            print(f"Session Key: {request.session.session_key}")
+            print(f"Session Items: {dict(request.session.items())}")
+            print(f"Response will set cookies")
+            print("=" * 50)
+            
             # Get user profile
             try:
                 profile = UserProfile.objects.get(user=user)
@@ -346,6 +381,8 @@ def login_view(request):
         else:
             return JsonResponse({'error': 'Invalid credentials'}, status=401)
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
 
 
@@ -354,7 +391,7 @@ def login_view(request):
 def logout_view(request):
     """Logout user"""
     try:
-        from django.contrib.auth import logout
+        print(f"LOGOUT: User {request.user.username if request.user.is_authenticated else 'Anonymous'}")
         logout(request)
         return JsonResponse({'message': 'Logout successful'})
     except Exception as e:
@@ -364,6 +401,18 @@ def logout_view(request):
 @require_http_methods(["GET"])
 def check_auth(request):
     """Check if user is authenticated"""
+    # Debug logging
+    print("=" * 50)
+    print("CHECK AUTH REQUEST")
+    print(f"User: {request.user}")
+    print(f"Authenticated: {request.user.is_authenticated}")
+    print(f"Session Key: {request.session.session_key}")
+    print(f"Session Items: {dict(request.session.items())}")
+    print(f"Cookies received: {list(request.COOKIES.keys())}")
+    if 'sessionid' in request.COOKIES:
+        print(f"Session ID from cookie: {request.COOKIES['sessionid'][:10]}...")
+    print("=" * 50)
+    
     if request.user.is_authenticated:
         try:
             profile = UserProfile.objects.get(user=request.user)
@@ -383,7 +432,52 @@ def check_auth(request):
     else:
         return JsonResponse({'authenticated': False})
 
-
+@csrf_exempt
+@require_http_methods(["POST"])
+def upload_avatar(request):
+    """Upload or update user avatar"""
+    try:
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        if 'avatar' not in request.FILES:
+            return JsonResponse({'error': 'No avatar file provided'}, status=400)
+        
+        avatar_file = request.FILES['avatar']
+        
+        # Validate file size (max 5MB)
+        if avatar_file.size > 5 * 1024 * 1024:
+            return JsonResponse({'error': 'File too large. Maximum size is 5MB'}, status=400)
+        
+        # Validate file type
+        allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+        if avatar_file.content_type not in allowed_types:
+            return JsonResponse({'error': 'Invalid file type. Only images are allowed'}, status=400)
+        
+        user = request.user
+        
+        # Get or create profile
+        profile, created = UserProfile.objects.get_or_create(user=user)
+        
+        # Delete old avatar if exists
+        if profile.avatar:
+            profile.avatar.delete(save=False)
+        
+        # Save new avatar
+        profile.avatar = avatar_file
+        profile.save()
+        
+        avatar_url = request.build_absolute_uri(profile.avatar.url)
+        
+        return JsonResponse({
+            'message': 'Avatar uploaded successfully',
+            'avatar': avatar_url
+        })
+        
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
 @csrf_exempt
 @require_http_methods(["GET", "PUT"])
 def profile(request, username=None):
@@ -394,6 +488,8 @@ def profile(request, username=None):
             if username:
                 user = User.objects.get(username=username)
             else:
+                if not request.user.is_authenticated:
+                    return JsonResponse({'error': 'Authentication required'}, status=401)
                 user = request.user
             
             # Get or create profile
@@ -451,82 +547,6 @@ def profile(request, username=None):
     except User.DoesNotExist:
         return JsonResponse({'error': 'User not found'}, status=404)
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
-    
-    
-@login_required
-def report_artwork(request, artwork_id):
-    artwork = get_object_or_404(Artwork, id=artwork_id)
-
-    if request.method == 'POST':
-        form = ReportForm(request.POST)
-        if form.is_valid():
-            report = form.save(commit=False)
-            report.user = request.user
-            report.artwork = artwork
-            report.save()
-            messages.success(request, "Report submitted successfully.")
-            return redirect(artwork.get_absolute_url())
-    else:
-        form = ReportForm(initial={'artwork': artwork})
-
-    return render(request, 'reports/report_form.html', {'form': form, 'artwork': artwork})
-
-
-@login_required
-def report_comment(request, comment_id):
-    comment = get_object_or_404(Comment, id=comment_id)
-
-    if request.method == 'POST':
-        form = ReportForm(request.POST)
-        if form.is_valid():
-            report = form.save(commit=False)
-            report.user = request.user
-            report.comment = comment
-            report.save()
-            messages.success(request, "Report submitted successfully.")
-            return redirect(comment.artwork.get_absolute_url())
-    else:
-        form = ReportForm(initial={'comment': comment})
-
-    return render(request, 'reports/report_form.html', {'form': form, 'comment': comment})
-
-
-# Admin view pour lister tous les reports
-from django.contrib.admin.views.decorators import staff_member_required
-
-@staff_member_required
-def reports_list(request):
-    reports = Report.objects.all().order_by('-created_at')
-    return render(request, 'reports/report_list.html', {'reports': reports})
-
-@staff_member_required
-def take_action(request, report_id):
-    """
-    Permet à un staff/admin de prendre une action sur un report.
-    Actions possibles via POST:
-    - resolve: marque le report comme résolu
-    - delete_artwork: supprime l'artwork signalé
-    - delete_comment: supprime le commentaire signalé
-    """
-    report = get_object_or_404(Report, id=report_id)
-
-    if request.method == 'POST':
-        action = request.POST.get('action')
-        if action == 'resolve':
-            report.resolved = True
-            report.save()
-            return JsonResponse({'status': 'success', 'message': 'Report resolved'})
-        elif action == 'delete_artwork':
-            report.artwork.delete()
-            report.resolved = True
-            report.save()
-            return JsonResponse({'status': 'success', 'message': 'Artwork deleted'})
-        elif action == 'delete_comment' and report.comment:
-            report.comment.delete()
-            report.resolved = True
-            report.save()
-            return JsonResponse({'status': 'success', 'message': 'Comment deleted'})
-        else:
-            return JsonResponse({'status': 'error', 'message': 'Invalid action'})
-    return JsonResponse({'status': 'error', 'message': 'POST method required'})

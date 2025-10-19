@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Image, Upload, User, LogOut, Search } from 'lucide-react';
+import { Home, Image, Upload, User, LogOut, Search, Compass, Users, Calendar, ShoppingBag, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 
@@ -20,7 +20,7 @@ const Navbar = () => {
             <span className="text-2xl font-bold gradient-text hidden sm:block">ArtVerse</span>
           </Link>
 
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
             <Link to="/">
               <Button
                 variant={isActive('/') ? 'default' : 'ghost'}
@@ -32,16 +32,49 @@ const Navbar = () => {
               </Button>
             </Link>
 
-            <Link to="/gallery">
+            <Link to="/explore">
               <Button
-                variant={isActive('/gallery') ? 'default' : 'ghost'}
+                variant={isActive('/explore') ? 'default' : 'ghost'}
                 size="sm"
-                className={isActive('/gallery') ? 'glow-effect' : ''}
+                className={isActive('/explore') ? 'glow-effect' : ''}
               >
-                <Search className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Gallery</span>
+                <Compass className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Explore</span>
               </Button>
             </Link>
+
+            <Link to="/marketplace">
+              <Button
+                variant={isActive('/marketplace') ? 'default' : 'ghost'}
+                size="sm"
+                className={isActive('/marketplace') ? 'glow-effect' : ''}
+              >
+                <ShoppingBag className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Market</span>
+              </Button>
+            </Link>
+
+            <Link to="/community">
+              <Button
+                variant={isActive('/community') ? 'default' : 'ghost'}
+                size="sm"
+                className={isActive('/community') ? 'glow-effect' : ''}
+              >
+                <Users className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Community</span>
+              </Button>
+            </Link>
+
+            {/* <Link to="/events">
+              <Button
+                variant={isActive('/events') ? 'default' : 'ghost'}
+                size="sm"
+                className={isActive('/events') ? 'glow-effect' : ''}
+              >
+                <Calendar className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Events</span>
+              </Button>
+            </Link> */}
 
             {isAuthenticated && (
               <>
