@@ -310,6 +310,7 @@ const AIImageGenerator = () => {
                   speed={1}
                   chaos={0.5}
                   thickness={3}
+                  className="w-full h-full"
                   style={{ borderRadius: 16, width: '100%', height: '100%' }}
                 >
                   <img
