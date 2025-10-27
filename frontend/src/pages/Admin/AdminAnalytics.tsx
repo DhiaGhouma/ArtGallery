@@ -133,10 +133,10 @@ export default function AdminAnalytics() {
             <CardContent>
               <div className="space-y-4">
                 {[
-                  { title: 'Abstract Dreams', views: '12.4K', likes: '2.1K' },
-                  { title: 'Neon Nights', views: '10.8K', likes: '1.9K' },
-                  { title: 'Digital Sunset', views: '9.2K', likes: '1.7K' },
-                  { title: 'Urban Flow', views: '8.5K', likes: '1.5K' },
+                  { title: 'Abstract Dreams', views: '12.4K', likes_count: '2.1K' },
+                  { title: 'Neon Nights', views: '10.8K', likes_count: '1.9K' },
+                  { title: 'Digital Sunset', views: '9.2K', likes_count: '1.7K' },
+                  { title: 'Urban Flow', views: '8.5K', likes_count: '1.5K' },
                 ].map((artwork, i) => (
                   <div key={i} className="flex items-center justify-between pb-3 border-b border-primary/10 last:border-0">
                     <div>
@@ -148,7 +148,7 @@ export default function AdminAnalytics() {
                         </span>
                         <span className="flex items-center gap-1">
                           <Heart className="h-3 w-3" />
-                          {artwork.likes}
+                          {artwork.likes_count}
                         </span>
                       </div>
                     </div>
