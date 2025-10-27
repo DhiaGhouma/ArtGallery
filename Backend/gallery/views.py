@@ -13,6 +13,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.utils import timezone
 from datetime import timedelta
 import json
+from .ai_service import generate_comment_suggestions
 
 
 # ============ Helper Functions ============
@@ -95,6 +96,7 @@ def index(request):
                     'avatar': avatar,
                 },
                 'likes_count': artwork.likes.count(),
+                'comments_count': artwork.comments.count(),
                 'views': artwork.views,
                 'is_featured': artwork.is_featured,
                 'created_at': artwork.created_at.isoformat(),
@@ -140,6 +142,7 @@ def artwork_detail(request, pk):
                 'avatar': artist_avatar,
             },
             'likes_count': artwork.likes.count(),
+            'comments_count': artwork.comments.count(),
             'views': artwork.views,
             'is_liked': artwork.likes.filter(user=request.user).exists() if request.user.is_authenticated else False,
             'created_at': artwork.created_at.isoformat(),
@@ -336,6 +339,48 @@ def delete_comment(request, pk):
         return JsonResponse({'error': 'Comment not found'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+# ============ AI Comment Suggestions ============
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def suggest_comments(request, pk):
+    """
+    Generate AI-powered comment suggestions for an artwork
+    POST /artworks/{pk}/suggest-comments/
+    """
+    try:
+        # Check authentication
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        # Get the artwork
+        artwork = Artwork.objects.get(pk=pk)
+        
+        # Generate suggestions using AI
+        suggestions = generate_comment_suggestions(
+            artwork_title=artwork.title,
+            artwork_description=artwork.description or 'An artwork',
+            artwork_style=artwork.style,
+            num_suggestions=3
+        )
+        
+        return JsonResponse({
+            'suggestions': suggestions,
+            'artwork_id': artwork.id,
+            'artwork_title': artwork.title
+        })
+        
+    except Artwork.DoesNotExist:
+        return JsonResponse({'error': 'Artwork not found'}, status=404)
+    except Exception as e:
+        # Log error in production
+        print(f"AI suggestion error: {str(e)}")
+        return JsonResponse({
+            'error': 'Failed to generate suggestions. Please try again.',
+            'details': str(e)
+        }, status=500)
 
 
 # ============ Authentication ============
