@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import ArtworkCard from '@/components/ArtworkCard';
+import CommentSuggestions from '@/components/CommentSuggestions';
 
 const ArtworkDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -99,6 +100,7 @@ const ArtworkDetail = () => {
         setArtwork({
           ...artwork,
           comments: [...(artwork.comments || []), newComment],
+          comments_count: (artwork.comments_count || 0) + 1,
         });
       }
       setComment('');
@@ -207,7 +209,7 @@ const ArtworkDetail = () => {
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <MessageCircle className="w-5 h-5" />
-                <span>{artwork.comments?.length || 0}</span>
+                <span>{artwork.comments_count || 0}</span>
               </div>
             </div>
 
@@ -219,14 +221,24 @@ const ArtworkDetail = () => {
               </h3>
 
               {/* Add Comment */}
-              <div className="mb-6">
+              <div className="mb-6 space-y-3">
                 <Textarea
                   placeholder="Add a comment..."
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                   className="mb-2 bg-background/50"
+                  rows={3}
                 />
-                <Button onClick={handleComment} className="glow-effect">
+                
+                {/* AI Comment Suggestions */}
+                {isAuthenticated && (
+                  <CommentSuggestions
+                    artworkId={Number(id)}
+                    onSelectSuggestion={(suggestion) => setComment(suggestion)}
+                  />
+                )}
+                
+                <Button onClick={handleComment} className="glow-effect w-full sm:w-auto">
                   <Send className="w-4 h-4 mr-2" />
                   Post Comment
                 </Button>

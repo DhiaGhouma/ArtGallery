@@ -15,6 +15,7 @@ export interface Artwork {
     avatar?: string;
   };
   likes_count: number;
+  comments_count: number;
   views: number;
   is_liked?: boolean;
   is_featured?: boolean;
@@ -116,6 +117,8 @@ export const api = {
     category?: string; 
     style?: string;
     featured?: boolean;
+    page?: number;
+    sort?: string;
   }): Promise<Artwork[]> {
     const queryParams = new URLSearchParams();
     if (params?.search) queryParams.append('search', params.search);
@@ -127,6 +130,12 @@ export const api = {
     }
     if (params?.featured) {
       queryParams.append('featured', 'true');
+    }
+    if (params?.page) {
+      queryParams.append('page', params.page.toString());
+    }
+    if (params?.sort) {
+      queryParams.append('sort', params.sort);
     }
 
     const queryString = queryParams.toString();
@@ -274,7 +283,27 @@ export const api = {
     }
   },
 
-  // ============ Authentication ============
+  // ============ AI Comment Suggestions ============
+  
+  async getCommentSuggestions(artworkId: number): Promise<{ suggestions: string[]; artwork_id: number; artwork_title: string }> {
+    const response = await fetch(`${API_BASE_URL}/artworks/${artworkId}/suggest-comments/`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to generate suggestions');
+    }
+    
+    return response.json();
+  },
+
+  // ============ Reports ============
   
   async register(data: { 
     username: string; 
