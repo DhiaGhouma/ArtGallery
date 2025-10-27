@@ -60,6 +60,7 @@ class ArtworkSerializer(serializers.ModelSerializer):
         required=False
     )
     likes_count = serializers.SerializerMethodField()
+    comments_count = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
     
     class Meta:
@@ -74,6 +75,7 @@ class ArtworkSerializer(serializers.ModelSerializer):
             'style',
             'artist',
             'likes_count',
+            'comments_count',
             'views',
             'is_liked',
             'is_featured',
@@ -85,6 +87,10 @@ class ArtworkSerializer(serializers.ModelSerializer):
     def get_likes_count(self, obj):
         """Get the count of likes for this artwork"""
         return obj.likes.count()
+    
+    def get_comments_count(self, obj):
+        """Get the count of comments for this artwork"""
+        return obj.comments.count()
     
     def get_is_liked(self, obj):
         """Check if the current user has liked this artwork"""
