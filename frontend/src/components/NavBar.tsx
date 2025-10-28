@@ -2,6 +2,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { Home, Image, Upload, User, LogOut, Search, Compass, Users, Calendar, ShoppingBag, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Sparkles } from "lucide-react";
+
 
 const Navbar = () => {
   const location = useLocation();
@@ -86,6 +88,16 @@ const Navbar = () => {
                   >
                     <Upload className="w-4 h-4 sm:mr-2" />
                     <span className="hidden sm:inline">Upload</span>
+                  </Button>
+                </Link>
+                <Link to="/evaluation">
+                  <Button
+                    variant={isActive('/evaluation') ? 'default' : 'ghost'}
+                    size="sm"
+                    className={isActive('/evaluation') ? 'glow-effect' : ''}
+                  >
+                    <Sparkles className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Evaluation</span>
                   </Button>
                 </Link>
 

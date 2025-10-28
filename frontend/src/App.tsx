@@ -22,6 +22,7 @@ import Community from "./pages/Community";
 import About from "./pages/About";
 import AIImageModifier from "./pages/AiImageModifier";
 import AdminDashboard from "./pages/Admin/AdminDashboard";
+import Evaluation from "./pages/Evaluation";
 const queryClient = new QueryClient();
 
 function AppRoutes() {
@@ -58,6 +59,7 @@ function AppRoutes() {
         <Route path="/ai-image-modifier" element={<AIImageModifier />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/adminDashboard" element={<AdminDashboard />} />
+        <Route path="/evaluation" element={<Evaluation />} />
       </Routes>
     </>
   );
