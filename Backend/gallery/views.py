@@ -101,6 +101,12 @@ def index(request):
                 'is_featured': artwork.is_featured,
                 'created_at': artwork.created_at.isoformat(),
                 'updated_at': artwork.updated_at.isoformat(),
+                # yosr's :
+                'price': float(artwork.price) if artwork.price else 0,
+                'in_stock': artwork.in_stock,
+
+
+
             })
         
         return JsonResponse(data, safe=False)
@@ -147,6 +153,9 @@ def artwork_detail(request, pk):
             'is_liked': artwork.likes.filter(user=request.user).exists() if request.user.is_authenticated else False,
             'created_at': artwork.created_at.isoformat(),
             'updated_at': artwork.updated_at.isoformat(),
+            # yosr's  :
+            'price': float(artwork.price) if artwork.price else 0,
+            'in_stock': artwork.in_stock,
             'comments': []
         }
         
@@ -175,6 +184,8 @@ def artwork_detail(request, pk):
         return JsonResponse({'error': 'Artwork not found'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+    
+
 
 
 @csrf_exempt
@@ -191,6 +202,8 @@ def upload_artwork(request):
         category_name = request.POST.get('category')
         style = request.POST.get('style')
         image = request.FILES.get('image')
+        price = request.POST.get('price')  # AJOUTEZ
+        in_stock = request.POST.get('in_stock', 'true')  # AJOUTEZ
         
         if not all([title, category_name, style, image]):
             return JsonResponse({'error': 'Required fields: title, category, style, image'}, status=400)
@@ -205,7 +218,9 @@ def upload_artwork(request):
             category=category,
             style=style,
             image=image,
-            artist=request.user
+            artist=request.user,
+            price=float(price) if price else 0,  # AJOUTEZ
+            in_stock=in_stock.lower() == 'true'  # AJOUTEZ
         )
         
         return JsonResponse({
@@ -237,6 +252,52 @@ def delete_artwork(request, pk):
     except Artwork.DoesNotExist:
         return JsonResponse({'error': 'Artwork not found'}, status=404)
     except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+@csrf_exempt
+@require_http_methods(["PUT", "PATCH"])
+def update_artwork(request, pk):
+    """Update artwork"""
+    try:
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        artwork = Artwork.objects.get(pk=pk)
+        
+        # Check if user is owner or staff
+        if artwork.artist != request.user and not request.user.is_staff:
+            return JsonResponse({'error': 'Permission denied'}, status=403)
+        
+        # Parse JSON data
+        data = json.loads(request.body)
+        
+        # Update fields
+        if 'title' in data:
+            artwork.title = data['title']
+        if 'description' in data:
+            artwork.description = data['description']
+        if 'price' in data:
+            artwork.price = float(data['price'])
+        if 'in_stock' in data:
+            artwork.in_stock = data['in_stock']
+        if 'is_featured' in data and request.user.is_staff:
+            artwork.is_featured = data['is_featured']
+        if 'category' in data:
+            category, _ = Category.objects.get_or_create(name=data['category'])
+            artwork.category = category
+        if 'style' in data:
+            artwork.style = data['style']
+        
+        artwork.save()
+        
+        return JsonResponse({
+            'message': 'Artwork updated successfully',
+            'id': artwork.id
+        })
+    except Artwork.DoesNotExist:
+        return JsonResponse({'error': 'Artwork not found'}, status=404)
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
 
 
