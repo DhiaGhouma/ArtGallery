@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'corsheaders',
     'gallery',
+    'evaluation',
     'crispy_forms',
     'crispy_bootstrap5',
     'rest_framework',

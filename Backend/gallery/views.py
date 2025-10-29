@@ -1,18 +1,51 @@
 from django.http import JsonResponse
-from .models import Artwork, Report, Comment  # ou le chemin correct si models.py est ailleurs
+from .models import Artwork, Report, Comment, Like, Category, UserProfile
 from .forms import ReportForm
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
+from django.contrib.admin.views.decorators import staff_member_required
+from django.utils import timezone
+from datetime import timedelta
 import json
-from .models import Artwork, Comment, Like, Category, UserProfile
+from .ai_service import generate_comment_suggestions
 
+
+# ============ Helper Functions ============
+
+def get_user_data(user, request):
+    """Helper function to get user data with is_staff"""
+    try:
+        profile = UserProfile.objects.get(user=user)
+        avatar = request.build_absolute_uri(profile.avatar.url) if profile.avatar else None
+        bio = profile.bio
+        location = profile.location
+        website = profile.website
+    except UserProfile.DoesNotExist:
+        avatar = None
+        bio = ''
+        location = ''
+        website = ''
+    
+    return {
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+        'is_staff': user.is_staff,  # Include is_staff for admin checks
+        'avatar': avatar,
+        'bio': bio,
+        'location': location,
+        'website': website,
+        'artworks_count': user.artworks.count(),
+    }
+
+
+# ============ Artworks ============
 
 @require_http_methods(["GET"])
 def index(request):
@@ -24,16 +57,19 @@ def index(request):
         search = request.GET.get('search', '')
         category = request.GET.get('category', '')
         style = request.GET.get('style', '')
+        featured = request.GET.get('featured', '')
         
         if search:
             artworks = artworks.filter(
                 Q(title__icontains=search) | 
                 Q(description__icontains=search)
             )
-        if category:
+        if category and category != 'all':
             artworks = artworks.filter(category__name=category)
-        if style:
+        if style and style != 'all':
             artworks = artworks.filter(style=style)
+        if featured:
+            artworks = artworks.filter(is_featured=True)
         
         artworks = artworks.order_by('-created_at')
         
@@ -60,6 +96,7 @@ def index(request):
                     'avatar': avatar,
                 },
                 'likes_count': artwork.likes.count(),
+                'comments_count': artwork.comments.count(),
                 'views': artwork.views,
                 'is_featured': artwork.is_featured,
                 'created_at': artwork.created_at.isoformat(),
@@ -69,82 +106,7 @@ def index(request):
         return JsonResponse(data, safe=False)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
-@login_required
-def report_artwork(request, artwork_id):
-    artwork = get_object_or_404(Artwork, id=artwork_id)
 
-    if request.method == 'POST':
-        form = ReportForm(request.POST)
-        if form.is_valid():
-            report = form.save(commit=False)
-            report.user = request.user
-            report.artwork = artwork
-            report.save()
-            messages.success(request, "Report submitted successfully.")
-            return redirect(artwork.get_absolute_url())
-    else:
-        form = ReportForm(initial={'artwork': artwork})
-
-    return render(request, 'reports/report_form.html', {'form': form, 'artwork': artwork})
-
-
-@login_required
-def report_comment(request, comment_id):
-    comment = get_object_or_404(Comment, id=comment_id)
-
-    if request.method == 'POST':
-        form = ReportForm(request.POST)
-        if form.is_valid():
-            report = form.save(commit=False)
-            report.user = request.user
-            report.comment = comment
-            report.save()
-            messages.success(request, "Report submitted successfully.")
-            return redirect(comment.artwork.get_absolute_url())
-    else:
-        form = ReportForm(initial={'comment': comment})
-
-    return render(request, 'reports/report_form.html', {'form': form, 'comment': comment})
-
-
-# Admin view pour lister tous les reports
-from django.contrib.admin.views.decorators import staff_member_required
-
-@staff_member_required
-def reports_list(request):
-    reports = Report.objects.all().order_by('-created_at')
-    return render(request, 'reports/report_list.html', {'reports': reports})
-
-@staff_member_required
-def take_action(request, report_id):
-    """
-    Permet à un staff/admin de prendre une action sur un report.
-    Actions possibles via POST:
-    - resolve: marque le report comme résolu
-    - delete_artwork: supprime l'artwork signalé
-    - delete_comment: supprime le commentaire signalé
-    """
-    report = get_object_or_404(Report, id=report_id)
-
-    if request.method == 'POST':
-        action = request.POST.get('action')
-        if action == 'resolve':
-            report.resolved = True
-            report.save()
-            return JsonResponse({'status': 'success', 'message': 'Report resolved'})
-        elif action == 'delete_artwork':
-            report.artwork.delete()
-            report.resolved = True
-            report.save()
-            return JsonResponse({'status': 'success', 'message': 'Artwork deleted'})
-        elif action == 'delete_comment' and report.comment:
-            report.comment.delete()
-            report.resolved = True
-            report.save()
-            return JsonResponse({'status': 'success', 'message': 'Comment deleted'})
-        else:
-            return JsonResponse({'status': 'error', 'message': 'Invalid action'})
-    return JsonResponse({'status': 'error', 'message': 'POST method required'})
 
 @require_http_methods(["GET"])
 def artwork_detail(request, pk):
@@ -180,6 +142,7 @@ def artwork_detail(request, pk):
                 'avatar': artist_avatar,
             },
             'likes_count': artwork.likes.count(),
+            'comments_count': artwork.comments.count(),
             'views': artwork.views,
             'is_liked': artwork.likes.filter(user=request.user).exists() if request.user.is_authenticated else False,
             'created_at': artwork.created_at.isoformat(),
@@ -219,21 +182,8 @@ def artwork_detail(request, pk):
 def upload_artwork(request):
     """Upload new artwork"""
     try:
-        # Debug logging
-        print(f"User authenticated: {request.user.is_authenticated}")
-        print(f"User: {request.user}")
-        print(f"Session key: {request.session.session_key}")
-        
-        # Check if user is authenticated
         if not request.user.is_authenticated:
-            return JsonResponse({
-                'error': 'Authentication required',
-                'debug': {
-                    'user': str(request.user),
-                    'authenticated': request.user.is_authenticated,
-                    'session_key': request.session.session_key
-                }
-            }, status=401)
+            return JsonResponse({'error': 'Authentication required'}, status=401)
         
         # Get form data
         title = request.POST.get('title')
@@ -269,15 +219,34 @@ def upload_artwork(request):
 
 
 @csrf_exempt
+@require_http_methods(["DELETE"])
+def delete_artwork(request, pk):
+    """Delete artwork"""
+    try:
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        artwork = Artwork.objects.get(pk=pk)
+        
+        # Check if user is owner or staff
+        if artwork.artist != request.user and not request.user.is_staff:
+            return JsonResponse({'error': 'Permission denied'}, status=403)
+        
+        artwork.delete()
+        return JsonResponse({'message': 'Artwork deleted successfully'})
+    except Artwork.DoesNotExist:
+        return JsonResponse({'error': 'Artwork not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# ============ Likes ============
+
+@csrf_exempt
 @require_http_methods(["POST"])
 def toggle_like(request, pk):
     """Toggle like on artwork"""
     try:
-        # Debug logging
-        print(f"LIKE REQUEST - User: {request.user}, Auth: {request.user.is_authenticated}")
-        print(f"Session key: {request.session.session_key}")
-        print(f"Cookies: {request.COOKIES.keys()}")
-        
         if not request.user.is_authenticated:
             return JsonResponse({'error': 'Authentication required'}, status=401)
         
@@ -300,10 +269,10 @@ def toggle_like(request, pk):
     except Artwork.DoesNotExist:
         return JsonResponse({'error': 'Artwork not found'}, status=404)
     except Exception as e:
-        import traceback
-        print(traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
 
+
+# ============ Comments ============
 
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -351,6 +320,72 @@ def add_comment(request, pk):
 
 
 @csrf_exempt
+@require_http_methods(["DELETE"])
+def delete_comment(request, pk):
+    """Delete comment"""
+    try:
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        comment = Comment.objects.get(pk=pk)
+        
+        # Check if user is owner or staff
+        if comment.user != request.user and not request.user.is_staff:
+            return JsonResponse({'error': 'Permission denied'}, status=403)
+        
+        comment.delete()
+        return JsonResponse({'message': 'Comment deleted successfully'})
+    except Comment.DoesNotExist:
+        return JsonResponse({'error': 'Comment not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# ============ AI Comment Suggestions ============
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def suggest_comments(request, pk):
+    """
+    Generate AI-powered comment suggestions for an artwork
+    POST /artworks/{pk}/suggest-comments/
+    """
+    try:
+        # Check authentication
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        # Get the artwork
+        artwork = Artwork.objects.get(pk=pk)
+        
+        # Generate suggestions using AI
+        suggestions = generate_comment_suggestions(
+            artwork_title=artwork.title,
+            artwork_description=artwork.description or 'An artwork',
+            artwork_style=artwork.style,
+            num_suggestions=3
+        )
+        
+        return JsonResponse({
+            'suggestions': suggestions,
+            'artwork_id': artwork.id,
+            'artwork_title': artwork.title
+        })
+        
+    except Artwork.DoesNotExist:
+        return JsonResponse({'error': 'Artwork not found'}, status=404)
+    except Exception as e:
+        # Log error in production
+        print(f"AI suggestion error: {str(e)}")
+        return JsonResponse({
+            'error': 'Failed to generate suggestions. Please try again.',
+            'details': str(e)
+        }, status=500)
+
+
+# ============ Authentication ============
+
+@csrf_exempt
 @require_http_methods(["POST"])
 def register(request):
     """Register new user"""
@@ -378,28 +413,14 @@ def register(request):
         # Create user profile
         UserProfile.objects.create(user=user)
         
-        # **CRITICAL FIX: Automatically log in the user after registration**
+        # Automatically log in the user after registration
         login(request, user)
-        
-        # Force session to be saved
         request.session.modified = True
         request.session.save()
         
-        # Debug logging
-        print("=" * 50)
-        print("REGISTRATION + AUTO-LOGIN SUCCESS")
-        print(f"User: {user.username}")
-        print(f"Session Key: {request.session.session_key}")
-        print(f"Session Items: {dict(request.session.items())}")
-        print("=" * 50)
-        
         return JsonResponse({
             'message': 'User registered successfully',
-            'user': {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-            }
+            'user': get_user_data(user, request)
         }, status=201)
     except Exception as e:
         import traceback
@@ -423,35 +444,12 @@ def login_view(request):
         
         if user is not None:
             login(request, user)
-            
-            # CRITICAL: Force session to be saved and created
             request.session.modified = True
             request.session.save()
             
-            # Debug logging
-            print("=" * 50)
-            print("LOGIN SUCCESS")
-            print(f"User: {user.username}")
-            print(f"Session Key: {request.session.session_key}")
-            print(f"Session Items: {dict(request.session.items())}")
-            print(f"Response will set cookies")
-            print("=" * 50)
-            
-            # Get user profile
-            try:
-                profile = UserProfile.objects.get(user=user)
-                avatar = request.build_absolute_uri(profile.avatar.url) if profile.avatar else None
-            except UserProfile.DoesNotExist:
-                avatar = None
-            
             return JsonResponse({
                 'message': 'Login successful',
-                'user': {
-                    'id': user.id,
-                    'username': user.username,
-                    'email': user.email,
-                    'avatar': avatar,
-                }
+                'user': get_user_data(user, request)
             })
         else:
             return JsonResponse({'error': 'Invalid credentials'}, status=401)
@@ -466,7 +464,6 @@ def login_view(request):
 def logout_view(request):
     """Logout user"""
     try:
-        print(f"LOGOUT: User {request.user.username if request.user.is_authenticated else 'Anonymous'}")
         logout(request)
         return JsonResponse({'message': 'Logout successful'})
     except Exception as e:
@@ -476,36 +473,70 @@ def logout_view(request):
 @require_http_methods(["GET"])
 def check_auth(request):
     """Check if user is authenticated"""
-    # Debug logging
-    print("=" * 50)
-    print("CHECK AUTH REQUEST")
-    print(f"User: {request.user}")
-    print(f"Authenticated: {request.user.is_authenticated}")
-    print(f"Session Key: {request.session.session_key}")
-    print(f"Session Items: {dict(request.session.items())}")
-    print(f"Cookies received: {list(request.COOKIES.keys())}")
-    if 'sessionid' in request.COOKIES:
-        print(f"Session ID from cookie: {request.COOKIES['sessionid'][:10]}...")
-    print("=" * 50)
-    
     if request.user.is_authenticated:
-        try:
-            profile = UserProfile.objects.get(user=request.user)
-            avatar = request.build_absolute_uri(profile.avatar.url) if profile.avatar else None
-        except UserProfile.DoesNotExist:
-            avatar = None
-        
         return JsonResponse({
             'authenticated': True,
-            'user': {
-                'id': request.user.id,
-                'username': request.user.username,
-                'email': request.user.email,
-                'avatar': avatar,
-            }
+            'user': get_user_data(request.user, request)
         })
     else:
         return JsonResponse({'authenticated': False})
+
+
+# ============ Profile ============
+
+@csrf_exempt
+@require_http_methods(["GET", "PUT"])
+def profile(request, username=None):
+    """Get or update user profile"""
+    try:
+        if request.method == 'GET':
+            # Get profile
+            if username:
+                user = User.objects.get(username=username)
+            else:
+                if not request.user.is_authenticated:
+                    return JsonResponse({'error': 'Authentication required'}, status=401)
+                user = request.user
+            
+            return JsonResponse(get_user_data(user, request))
+        
+        elif request.method == 'PUT':
+            # Check authentication for updates
+            if not request.user.is_authenticated:
+                return JsonResponse({'error': 'Authentication required'}, status=401)
+            
+            # Update profile
+            data = json.loads(request.body)
+            user = request.user
+            
+            if 'username' in data:
+                user.username = data['username']
+            if 'email' in data:
+                user.email = data['email']
+            
+            user.save()
+            
+            # Update profile
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            if 'bio' in data:
+                profile.bio = data['bio']
+            if 'location' in data:
+                profile.location = data['location']
+            if 'website' in data:
+                profile.website = data['website']
+            profile.save()
+            
+            return JsonResponse({
+                'message': 'Profile updated successfully',
+                'user': get_user_data(user, request)
+            })
+    except User.DoesNotExist:
+        return JsonResponse({'error': 'User not found'}, status=404)
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
+
 
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -553,75 +584,148 @@ def upload_avatar(request):
         import traceback
         print(traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
-@csrf_exempt
-@require_http_methods(["GET", "PUT"])
-def profile(request, username=None):
-    """Get or update user profile"""
+
+
+# ============ Reports ============
+
+@require_http_methods(["GET"])
+@staff_member_required
+def get_reports(request):
+    """Get all reports (admin only)"""
     try:
-        if request.method == 'GET':
-            # Get profile
-            if username:
-                user = User.objects.get(username=username)
-            else:
-                if not request.user.is_authenticated:
-                    return JsonResponse({'error': 'Authentication required'}, status=401)
-                user = request.user
-            
-            # Get or create profile
-            profile, _ = UserProfile.objects.get_or_create(user=user)
-            
-            avatar = None
-            if profile.avatar:
-                avatar = request.build_absolute_uri(profile.avatar.url)
-            
-            return JsonResponse({
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'avatar': avatar,
-                'bio': profile.bio,
-                'location': profile.location,
-                'website': profile.website,
-                'artworks_count': user.artworks.count(),
-            })
+        reports = Report.objects.all().order_by('-created_at')
         
-        elif request.method == 'PUT':
-            # Check authentication for updates
-            if not request.user.is_authenticated:
-                return JsonResponse({'error': 'Authentication required'}, status=401)
+        data = []
+        for report in reports:
+            report_data = {
+                'id': report.id,
+                'reporter': {
+                    'id': report.reporter.id,
+                    'username': report.reporter.username,
+                },
+                'reason': report.reason,
+                'description': report.description,
+                'resolved': report.resolved,
+                'created_at': report.created_at.isoformat(),
+            }
             
-            # Update profile
-            data = json.loads(request.body)
-            user = request.user
-            
-            if 'username' in data:
-                user.username = data['username']
-            if 'email' in data:
-                user.email = data['email']
-            
-            user.save()
-            
-            # Update profile
-            profile, _ = UserProfile.objects.get_or_create(user=user)
-            if 'bio' in data:
-                profile.bio = data['bio']
-            if 'location' in data:
-                profile.location = data['location']
-            if 'website' in data:
-                profile.website = data['website']
-            profile.save()
-            
-            return JsonResponse({
-                'message': 'Profile updated successfully',
-                'user': {
-                    'id': user.id,
-                    'username': user.username,
-                    'email': user.email,
+            # Add artwork info if exists
+            if report.artwork:
+                report_data['artwork'] = {
+                    'id': report.artwork.id,
+                    'title': report.artwork.title,
+                    'image': request.build_absolute_uri(report.artwork.image.url) if report.artwork.image else None,
                 }
-            })
-    except User.DoesNotExist:
-        return JsonResponse({'error': 'User not found'}, status=404)
+            
+            # Add comment info if exists
+            if report.comment:
+                report_data['comment'] = {
+                    'id': report.comment.id,
+                    'text': report.comment.content,
+                    'user': {
+                        'id': report.comment.user.id,
+                        'username': report.comment.user.username,
+                    }
+                }
+            
+            data.append(report_data)
+        
+        return JsonResponse(data, safe=False)
     except Exception as e:
-        import traceback
-        print(traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@staff_member_required
+def resolve_report(request, report_id):
+    """Resolve a report (admin only)"""
+    try:
+        report = get_object_or_404(Report, id=report_id)
+        report.resolved = True
+        report.save()
+        
+        return JsonResponse({
+            'message': 'Report resolved successfully',
+            'id': report.id,
+            'resolved': report.resolved
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# ============ Admin - Users ============
+
+@require_http_methods(["GET"])
+@staff_member_required
+def get_all_users(request):
+    """Get all users (admin only)"""
+    try:
+        users = User.objects.all().order_by('-date_joined')
+        
+        # Apply filters
+        search = request.GET.get('search', '')
+        is_staff = request.GET.get('is_staff', '')
+        is_active = request.GET.get('is_active', '')
+        
+        if search:
+            users = users.filter(
+                Q(username__icontains=search) | 
+                Q(email__icontains=search)
+            )
+        if is_staff:
+            users = users.filter(is_staff=is_staff.lower() == 'true')
+        if is_active:
+            users = users.filter(is_active=is_active.lower() == 'true')
+        
+        data = [get_user_data(user, request) for user in users]
+        
+        return JsonResponse(data, safe=False)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# ============ Admin - Stats ============
+
+@require_http_methods(["GET"])
+@staff_member_required
+def get_admin_stats(request):
+    """Get admin dashboard statistics"""
+    try:
+        total_users = User.objects.count()
+        active_users = User.objects.filter(is_active=True).count()
+        total_artworks = Artwork.objects.count()
+        total_reports = Report.objects.count()
+        pending_reports = Report.objects.filter(resolved=False).count()
+        
+        return JsonResponse({
+            'totalUsers': total_users,
+            'activeUsers': active_users,
+            'totalArtworks': total_artworks,
+            'totalReports': total_reports,
+            'pendingReports': pending_reports,
+            'totalTransactions': 0,  # Placeholder
+            'totalRevenue': 0,  # Placeholder
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# ============ Categories ============
+
+@require_http_methods(["GET"])
+def get_categories(request):
+    """Get all categories"""
+    try:
+        categories = Category.objects.all()
+        data = [
+            {
+                'id': cat.id,
+                'name': cat.name,
+                'description': cat.description,
+            }
+            for cat in categories
+        ]
+        return JsonResponse(data, safe=False)
+    except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

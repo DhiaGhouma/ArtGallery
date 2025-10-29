@@ -8,6 +8,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>;
   refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
+  isAdmin: boolean; // Helper property for checking admin status
   loading: boolean;
 }
 
@@ -43,8 +44,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const register = async (username: string, email: string, password: string) => {
     await api.register({ username, email, password });
     
-    // **FIX: Check authentication after registration to get complete user data**
-    // This ensures the session cookie is properly set and user state is updated
+    // Check authentication after registration to get complete user data
     const authResponse = await api.checkAuth();
     if (authResponse.authenticated && authResponse.user) {
       setUser(authResponse.user);
@@ -54,8 +54,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = async (username: string, password: string) => {
     await api.login({ username, password });
     
-    // **IMPROVEMENT: Always use checkAuth for consistency**
-    // This ensures we get the complete user profile data
+    // Always use checkAuth for consistency to get complete user profile data
     const authResponse = await api.checkAuth();
     if (authResponse.authenticated && authResponse.user) {
       setUser(authResponse.user);
@@ -72,7 +71,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  // Add refresh user function
+  // Refresh user function
   const refreshUser = async () => {
     try {
       const profile = await api.getProfile();
@@ -90,6 +89,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         logout,
         login,
         isAuthenticated: !!user,
+        isAdmin: !!user?.is_staff, 
         loading,
         refreshUser,
       }}

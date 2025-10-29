@@ -204,8 +204,8 @@ const Explore = () => {
                     alt={artwork.title || 'Artwork'}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                     loading="lazy"
-                    onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/600x600?text=Image+Not+Found';
+                    onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                      e.currentTarget.src = 'https://via.placeholder.com/600x600?text=Image+Not+Found';
                     }}
                   />
                   
@@ -274,7 +274,7 @@ const Explore = () => {
                     </span>
                     <span className="flex items-center gap-1">
                       <MessageCircle className="w-4 h-4" />
-                      {artwork.comments?.length ?? 0}
+                      {artwork.comments_count ?? 0}
                     </span>
                   </div>
                 </div>

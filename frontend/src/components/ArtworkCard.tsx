@@ -12,7 +12,7 @@ interface ArtworkCardProps {
 
 const ArtworkCard = ({ artwork, onLike }: ArtworkCardProps) => {
   const [isLiked, setIsLiked] = useState(artwork.is_liked || false);
-  const [likes, setLikes] = useState(artwork.likes);
+  const [likes, setLikes] = useState(artwork.likes_count);
 
   const handleLike = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -50,7 +50,7 @@ const ArtworkCard = ({ artwork, onLike }: ArtworkCardProps) => {
                 </div>
                 <div className="flex items-center gap-1 text-white/70">
                   <MessageCircle className="w-4 h-4" />
-                  <span className="text-sm">{artwork.comments?.length || 0}</span>
+                  <span className="text-sm">{artwork.comments_count || 0}</span>
                 </div>
               </div>
             </div>
