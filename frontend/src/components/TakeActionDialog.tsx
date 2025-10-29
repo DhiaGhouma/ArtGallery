@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { api, Report } from '@/lib/api';
+import { api, Report ,Artwork } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { AlertTriangle, CheckCircle, Trash2 } from 'lucide-react';
 
@@ -19,10 +19,10 @@ export const TakeActionDialog = ({
   onActionComplete,
 }: TakeActionDialogProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<'resolve' | 'delete-artwork' | 'delete-comment' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'resolve' | 'delete-artwork' | 'delete-comment' | 'ban-user' | null>(null);
   const { toast } = useToast();
 
-  const handleAction = async (action: 'resolve' | 'delete-artwork' | 'delete-comment') => {
+  const handleAction = async (action: 'resolve' | 'delete-artwork' | 'delete-comment' | 'ban-user') => {
     if (!report) return;
 
     setIsProcessing(true);
@@ -56,6 +56,15 @@ export const TakeActionDialog = ({
             });
           }
           break;
+        case 'ban-user':
+        await api.banUser(report.artwork.artist.id);
+        await api.resolveReport(report.id);
+        toast({
+          title: 'User banned',
+          description: `The user ${report.artwork.artist.username} has been permanently banned.`,
+        });
+        break;
+
       }
 
       setConfirmAction(null);
@@ -179,6 +188,20 @@ export const TakeActionDialog = ({
                 <div className="text-xs text-muted-foreground">Remove the artwork permanently</div>
               </div>
             </Button>
+            <Button
+  onClick={() => setConfirmAction('ban-user')}
+  className="w-full justify-start gap-3 h-auto py-4 bg-destructive/10 hover:bg-destructive/20 text-foreground border border-destructive/20"
+  disabled={isProcessing}
+>
+  <Trash2 className="h-5 w-5 text-destructive" />
+  <div className="text-left">
+    <div className="font-medium">Ban User</div>
+    <div className="text-xs text-muted-foreground">
+      Permanently ban the user who created this artwork
+    </div>
+  </div>
+</Button>
+
 
             {report.comment && (
               <Button
@@ -192,6 +215,8 @@ export const TakeActionDialog = ({
                   <div className="text-xs text-muted-foreground">Remove only the comment</div>
                 </div>
               </Button>
+              
+              
             )}
           </div>
 

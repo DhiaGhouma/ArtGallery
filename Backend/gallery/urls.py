@@ -26,8 +26,12 @@ urlpatterns = [
     path('users/<str:username>/', views.profile, name='user_profile'),
     
     # Reports
-    path('reports/', views.get_reports, name='get_reports'),
+    path('reports/', views.create_report, name='create_report'),
+    path('reports/all/', views.get_reports, name='get_reports'),
     path('reports/<int:report_id>/resolve/', views.resolve_report, name='resolve_report'),
+    path('users/<int:user_id>/ban/', views.ban_user, name='ban_user'),
+
+    
     
     # Admin
     path('admin/users/', views.get_all_users, name='get_all_users'),

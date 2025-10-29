@@ -17,7 +17,7 @@ import NotFound from "./pages/NotFound";
 import Test from "./pages/Test";
 import Explore from "./pages/Explore";
 import Marketplace from "./pages/MarketPlace";
-import Reports from "./pages/Reports";
+import Reports from "./pages/Admin/Reports";
 import Community from "./pages/Community";
 import About from "./pages/About";
 import AIImageModifier from "./pages/AiImageModifier";

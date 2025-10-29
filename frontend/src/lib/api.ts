@@ -45,6 +45,10 @@ export interface Report {
     id: number;
     title: string;
     image: string;
+    artist: {                
+      id: number;
+      username: string;
+    };
   };
   comment?: {
     id: number;
@@ -440,9 +444,22 @@ export const api = {
   },
 
   // ============ Reports ============
+  async banUser(id: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/users/${id}/ban/`, {
+    method: 'POST',
+    headers: getAuthHeader(),
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to ban user');
+  }
+},
+
   
   async getReports(): Promise<Report[]> {
-    const response = await fetch(`${API_BASE_URL}/reports/`, {
+    const response = await fetch(`${API_BASE_URL}/reports/all/`, {
       credentials: 'include',
       headers: getAuthHeader(),
     });
