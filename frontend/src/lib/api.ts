@@ -9,6 +9,8 @@ export interface Artwork {
   image: string;
   category: string;
   style: string;
+  price?: number;  // AJOUTEZ
+  in_stock?: boolean;  // AJOUTEZ
   artist: {
     id: number;
     username: string;
@@ -181,22 +183,6 @@ export const api = {
     return response.json();
   },
 
-  async updateArtwork(id: number, formData: FormData): Promise<{ message: string }> {
-    const response = await fetch(`${API_BASE_URL}/artworks/${id}/`, {
-      method: 'PUT',
-      headers: getAuthHeader(),
-      credentials: 'include',
-      body: formData,
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to update artwork');
-    }
-    
-    return response.json();
-  },
-
   async deleteArtwork(id: number): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/artworks/${id}/`, {
       method: 'DELETE',
@@ -209,6 +195,34 @@ export const api = {
       throw new Error(error.error || 'Failed to delete artwork');
     }
   },
+
+  async updateArtwork(id: number, data: {
+  title?: string;
+  description?: string;
+  price?: number;
+  in_stock?: boolean;
+  category?: string;
+  style?: string;
+}): Promise<{ message: string; id: number }> {
+  const response = await fetch(`${API_BASE_URL}/artworks/${id}/update/`, {
+    method: 'PUT',
+    headers: {
+      ...getAuthHeader(),
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to update artwork');
+  }
+  
+  return response.json();
+},
+
+  
 
   // ============ Likes ============
   
