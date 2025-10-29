@@ -253,3 +253,54 @@ class AdminUserSerializer(serializers.ModelSerializer):
     def get_artworks_count(self, obj):
         """Get the count of artworks for this user"""
         return obj.artworks.count()
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'avatar']
+
+class CommentSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = Comment
+        fields = ['id', 'user', 'content', 'text', 'created_at', 'updated_at']
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        # Support both 'content' and 'text' fields
+        if hasattr(instance, 'content'):
+            representation['text'] = instance.content
+            representation['content'] = instance.content
+        return representation
+
+class ArtworkSerializer(serializers.ModelSerializer):
+    artist = UserSerializer(read_only=True)
+    likes_count = serializers.IntegerField(read_only=True)
+    comments_count = serializers.IntegerField(read_only=True)
+    comments = CommentSerializer(many=True, read_only=True)
+    is_liked = serializers.SerializerMethodField()
+    category = serializers.StringRelatedField()
+    
+    class Meta:
+        model = Artwork
+        fields = [
+            'id', 'title', 'description', 'image', 'artist',
+            'category', 'style', 'likes_count', 'comments_count',
+            'views', 'is_liked', 'is_featured', 'comments',
+            'created_at', 'updated_at'
+        ]
+    
+    def get_is_liked(self, obj):
+        request = self.context.get('request')
+        user = self.context.get('user')
+        
+        if not user or not user.is_authenticated:
+            return False
+        
+        # Check if already annotated (for optimization)
+        if hasattr(obj, 'user_has_liked'):
+            return obj.user_has_liked
+        
+        # Otherwise query
+        return Like.objects.filter(user=user, artwork=obj).exists()

@@ -46,13 +46,85 @@ const Home = () => {
     loadArtworks();
   };
 
-  const handleLike = async (id: number) => {
+  const handleLike = async (id: number): Promise<void> => {
     try {
-      await api.likeArtwork(id);
+      const result = await api.likeArtwork(id);
+      
+      // Update artworks state
+      setArtworks(prev =>
+        prev.map(art => (art.id === id ? { 
+          ...art, 
+          likes_count: result.likes_count,
+          is_liked: result.liked 
+        } : art))
+      );
+      
+      // Update featured state if the artwork is in featured
+      setFeatured(prev =>
+        prev.map(art => (art.id === id ? { 
+          ...art, 
+          likes_count: result.likes_count,
+          is_liked: result.liked 
+        } : art))
+      );
+      
     } catch (error) {
+      console.error('Failed to like artwork:', error);
       toast({
         title: 'Error',
         description: 'Please login to like artworks',
+        variant: 'destructive',
+      });
+      throw error; // Re-throw to let the card component know it failed
+    }
+  };
+
+  const handleComment = async (id: number, commentText: string) => {
+    try {
+      await api.commentOnArtwork(id, commentText);
+      
+      // Update artworks state to increment comment count
+      setArtworks(prev =>
+        prev.map(art => (art.id === id ? { 
+          ...art, 
+          comments: [
+            ...(art.comments || []), 
+            {
+              id: Date.now(), // or use a better unique id if available
+              text: commentText,
+              user: { id: 0, username: 'You' }, // or use actual user info if available
+              created_at: new Date().toISOString()
+            }
+          ]
+        } : art))
+      );
+      
+      // Update featured state if the artwork is in featured
+      setFeatured(prev =>
+        prev.map(art => (art.id === id ? { 
+          ...art, 
+          comments: [
+            ...(art.comments || []), 
+            {
+              id: Date.now(), // or use a better unique id if available
+              text: commentText,
+              user: { id: 0, username: 'You' }, // or use actual user info if available
+              created_at: new Date().toISOString()
+            }
+          ]
+        } : art))
+      );
+      
+      toast({
+        title: 'Success',
+        description: 'Comment added successfully',
+      });
+      
+    } catch (error) {
+      console.error('Failed to add comment:', error);
+      toast({
+        title: 'Error',
+        description: 'Please login to comment on artworks',
         variant: 'destructive',
       });
     }
@@ -139,7 +211,11 @@ const Home = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {featured.map((artwork, idx) => (
                 <div key={artwork.id} className="animate-scale-in" style={{ animationDelay: `${idx * 0.1}s` }}>
-                  <ArtworkCard artwork={artwork} onLike={handleLike} />
+                  <ArtworkCard 
+                    artwork={artwork} 
+                    onLike={handleLike}
+                    onComment={handleComment}
+                  />
                 </div>
               ))}
             </div>
@@ -196,7 +272,11 @@ const Home = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {artworks.map((artwork, idx) => (
                 <div key={artwork.id} className="animate-fade-in" style={{ animationDelay: `${idx * 0.05}s` }}>
-                  <ArtworkCard artwork={artwork} onLike={handleLike} />
+                  <ArtworkCard 
+                    artwork={artwork} 
+                    onLike={handleLike}
+                    onComment={handleComment}
+                  />
                 </div>
               ))}
             </div>

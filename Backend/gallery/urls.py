@@ -4,9 +4,9 @@ from . import views
 urlpatterns = [
     # Artworks
     path('artworks/', views.index, name='artworks'),
-    path('artworks/<int:pk>/', views.artwork_detail, name='artwork_detail'),
     path('artworks/upload/', views.upload_artwork, name='upload_artwork'),
-    path('artworks/<int:pk>/delete/', views.delete_artwork, name='delete_artwork'),
+    path('artworks/<int:pk>/', views.artwork_detail_update_delete, name='artwork_detail'),
+    path('artworks/<int:pk>/update/', views.update_artwork, name='update_artwork'),  # Add this
     path('artworks/<int:pk>/like/', views.toggle_like, name='toggle_like'),
     path('artworks/<int:pk>/comment/', views.add_comment, name='add_comment'),
     

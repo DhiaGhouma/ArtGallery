@@ -50,13 +50,18 @@ def get_user_data(user, request):
 def index(request):
     """Get all artworks with optional filters"""
     try:
-        artworks = Artwork.objects.all()
+        # Start with annotated queryset
+        artworks = Artwork.objects.annotate(
+            likes_count=Count('likes', distinct=True),
+            comments_count=Count('comments', distinct=True)
+        )
         
         # Handle filters
         search = request.GET.get('search', '')
         category = request.GET.get('category', '')
         style = request.GET.get('style', '')
         featured = request.GET.get('featured', '')
+        sort = request.GET.get('sort', '-created_at')
         
         if search:
             artworks = artworks.filter(
@@ -64,13 +69,26 @@ def index(request):
                 Q(description__icontains=search)
             )
         if category and category != 'all':
-            artworks = artworks.filter(category__name=category)
+            artworks = artworks.filter(category__name__iexact=category)
         if style and style != 'all':
             artworks = artworks.filter(style=style)
         if featured:
             artworks = artworks.filter(is_featured=True)
         
-        artworks = artworks.order_by('-created_at')
+        # Apply sorting
+        valid_sorts = [
+            '-created_at', 'created_at',
+            '-likes_count', 'likes_count',
+            '-comments_count', 'comments_count',
+            '-views', 'views',
+            '-updated_at', 'updated_at'
+        ]
+        
+        if sort in valid_sorts:
+            # Use secondary sort by created_at for consistency
+            artworks = artworks.order_by(sort, '-created_at')
+        else:
+            artworks = artworks.order_by('-created_at')
         
         data = []
         for artwork in artworks:
@@ -81,6 +99,34 @@ def index(request):
                     avatar = request.build_absolute_uri(artwork.artist.userprofile.avatar.url)
             except UserProfile.DoesNotExist:
                 pass
+            
+            # Get comments for this artwork
+            comments = Comment.objects.filter(artwork=artwork).order_by('-created_at')
+            comments_data = []
+            for comment in comments:
+                comment_avatar = None
+                try:
+                    if hasattr(comment.user, 'userprofile') and comment.user.userprofile.avatar:
+                        comment_avatar = request.build_absolute_uri(comment.user.userprofile.avatar.url)
+                except UserProfile.DoesNotExist:
+                    pass
+                
+                comments_data.append({
+                    'id': comment.id,
+                    'text': comment.content,
+                    'content': comment.content,
+                    'user': {
+                        'id': comment.user.id,
+                        'username': comment.user.username,
+                        'avatar': comment_avatar,
+                    },
+                    'created_at': comment.created_at.isoformat(),
+                })
+            
+            # Check if current user has liked this artwork
+            is_liked = False
+            if request.user.is_authenticated:
+                is_liked = artwork.likes.filter(user=request.user).exists()
             
             data.append({
                 'id': artwork.id,
@@ -94,85 +140,182 @@ def index(request):
                     'username': artwork.artist.username,
                     'avatar': avatar,
                 },
-                'likes_count': artwork.likes.count(),
+                'likes_count': artwork.likes_count,  # Use annotated value
+                'comments_count': artwork.comments_count,  # Use annotated value
                 'views': artwork.views,
+                'is_liked': is_liked,
                 'is_featured': artwork.is_featured,
+                'comments': comments_data,  # Include all comments
                 'created_at': artwork.created_at.isoformat(),
                 'updated_at': artwork.updated_at.isoformat(),
             })
         
         return JsonResponse(data, safe=False)
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
 
 
-@require_http_methods(["GET"])
-def artwork_detail(request, pk):
-    """Get single artwork with comments"""
+@csrf_exempt
+@require_http_methods(["GET", "PUT", "DELETE"])
+def artwork_detail_update_delete(request, pk):
+    """Get, update, or delete artwork"""
     try:
-        artwork = Artwork.objects.get(pk=pk)
-        
-        # Increment views
-        artwork.views += 1
-        artwork.save()
-        
-        # Get comments
-        comments = Comment.objects.filter(artwork=artwork).order_by('-created_at')
-        
-        # Get artist avatar
-        artist_avatar = None
-        try:
-            if hasattr(artwork.artist, 'userprofile') and artwork.artist.userprofile.avatar:
-                artist_avatar = request.build_absolute_uri(artwork.artist.userprofile.avatar.url)
-        except UserProfile.DoesNotExist:
-            pass
-        
-        data = {
-            'id': artwork.id,
-            'title': artwork.title,
-            'description': artwork.description,
-            'image': request.build_absolute_uri(artwork.image.url) if artwork.image else None,
-            'category': artwork.category.name if artwork.category else None,
-            'style': artwork.style,
-            'artist': {
-                'id': artwork.artist.id,
-                'username': artwork.artist.username,
-                'avatar': artist_avatar,
-            },
-            'likes_count': artwork.likes.count(),
-            'views': artwork.views,
-            'is_liked': artwork.likes.filter(user=request.user).exists() if request.user.is_authenticated else False,
-            'created_at': artwork.created_at.isoformat(),
-            'updated_at': artwork.updated_at.isoformat(),
-            'comments': []
-        }
-        
-        # Add comments
-        for comment in comments:
-            comment_avatar = None
+        if request.method == 'GET':
+            # Get single artwork with comments
+            artwork = Artwork.objects.annotate(
+                likes_count=Count('likes', distinct=True),
+                comments_count=Count('comments', distinct=True)
+            ).get(pk=pk)
+            
+            # Increment views
+            artwork.views += 1
+            artwork.save()
+            
+            # Get comments
+            comments = Comment.objects.filter(artwork=artwork).order_by('-created_at')
+            
+            # Get artist avatar
+            artist_avatar = None
             try:
-                if hasattr(comment.user, 'userprofile') and comment.user.userprofile.avatar:
-                    comment_avatar = request.build_absolute_uri(comment.user.userprofile.avatar.url)
+                if hasattr(artwork.artist, 'userprofile') and artwork.artist.userprofile.avatar:
+                    artist_avatar = request.build_absolute_uri(artwork.artist.userprofile.avatar.url)
             except UserProfile.DoesNotExist:
                 pass
             
-            data['comments'].append({
-                'id': comment.id,
-                'text': comment.content,
-                'user': {
-                    'id': comment.user.id,
-                    'username': comment.user.username,
-                    'avatar': comment_avatar,
+            data = {
+                'id': artwork.id,
+                'title': artwork.title,
+                'description': artwork.description,
+                'image': request.build_absolute_uri(artwork.image.url) if artwork.image else None,
+                'category': artwork.category.name if artwork.category else None,
+                'style': artwork.style,
+                'artist': {
+                    'id': artwork.artist.id,
+                    'username': artwork.artist.username,
+                    'avatar': artist_avatar,
                 },
-                'created_at': comment.created_at.isoformat(),
+                'likes_count': artwork.likes_count,
+                'comments_count': artwork.comments_count,
+                'views': artwork.views,
+                'is_liked': artwork.likes.filter(user=request.user).exists() if request.user.is_authenticated else False,
+                'created_at': artwork.created_at.isoformat(),
+                'updated_at': artwork.updated_at.isoformat(),
+                'comments': []
+            }
+            
+            # Add comments
+            for comment in comments:
+                comment_avatar = None
+                try:
+                    if hasattr(comment.user, 'userprofile') and comment.user.userprofile.avatar:
+                        comment_avatar = request.build_absolute_uri(comment.user.userprofile.avatar.url)
+                except UserProfile.DoesNotExist:
+                    pass
+                
+                data['comments'].append({
+                    'id': comment.id,
+                    'text': comment.content,
+                    'content': comment.content,
+                    'user': {
+                        'id': comment.user.id,
+                        'username': comment.user.username,
+                        'avatar': comment_avatar,
+                    },
+                    'created_at': comment.created_at.isoformat(),
+                })
+            
+            return JsonResponse(data)
+        
+        elif request.method == 'PUT':
+            # Update artwork
+            if not request.user.is_authenticated:
+                return JsonResponse({'error': 'Authentication required'}, status=401)
+            
+            artwork = Artwork.objects.get(pk=pk)
+            
+            # Check if user is owner or staff
+            if artwork.artist != request.user and not request.user.is_staff:
+                return JsonResponse({'error': 'Permission denied'}, status=403)
+            
+            # Parse multipart form data for PUT request
+            # Django populates POST and FILES even for PUT requests with multipart/form-data
+            title = request.POST.get('title')
+            description = request.POST.get('description')
+            category_name = request.POST.get('category')
+            style = request.POST.get('style')
+            image = request.FILES.get('image')
+            
+            print(f"Update data - Title: {title}, Category: {category_name}, Style: {style}, Has Image: {image is not None}")
+            
+            # Update fields if provided
+            if title:
+                artwork.title = title
+                print(f"Updated title to: {title}")
+            if description is not None:
+                artwork.description = description
+                print(f"Updated description to: {description}")
+            if category_name:
+                category, _ = Category.objects.get_or_create(name=category_name)
+                artwork.category = category
+                print(f"Updated category to: {category_name}")
+            if style:
+                artwork.style = style
+                print(f"Updated style to: {style}")
+            if image:
+                # Delete old image if exists
+                if artwork.image:
+                    try:
+                        import os
+                        old_path = artwork.image.path
+                        if os.path.exists(old_path):
+                            os.remove(old_path)
+                    except Exception as e:
+                        print(f"Error deleting old image: {e}")
+                artwork.image = image
+                print(f"Updated image")
+            
+            artwork.save()
+            print(f"Artwork saved - ID: {artwork.id}")
+            
+            return JsonResponse({
+                'message': 'Artwork updated successfully',
+                'id': artwork.id
             })
         
-        return JsonResponse(data)
+        elif request.method == 'DELETE':
+            # Delete artwork
+            if not request.user.is_authenticated:
+                return JsonResponse({'error': 'Authentication required'}, status=401)
+            
+            artwork = Artwork.objects.get(pk=pk)
+            
+            # Check if user is owner or staff
+            if artwork.artist != request.user and not request.user.is_staff:
+                return JsonResponse({'error': 'Permission denied'}, status=403)
+            
+            # Delete the image file
+            if artwork.image:
+                try:
+                    import os
+                    if os.path.exists(artwork.image.path):
+                        os.remove(artwork.image.path)
+                except Exception as e:
+                    print(f"Error deleting image file: {e}")
+            
+            artwork_id = artwork.id
+            artwork.delete()
+            print(f"Artwork deleted - ID: {artwork_id}")
+            
+            return JsonResponse({'message': 'Artwork deleted successfully'})
+            
     except Artwork.DoesNotExist:
         return JsonResponse({'error': 'Artwork not found'}, status=404)
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
-
 
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -259,9 +402,12 @@ def toggle_like(request, pk):
         else:
             liked = True
         
+        # Get updated count
+        likes_count = artwork.likes.count()
+        
         return JsonResponse({
             'liked': liked,
-            'likes_count': artwork.likes.count()
+            'likes_count': likes_count
         })
     except Artwork.DoesNotExist:
         return JsonResponse({'error': 'Artwork not found'}, status=404)
@@ -303,6 +449,7 @@ def add_comment(request, pk):
         return JsonResponse({
             'id': comment.id,
             'text': comment.content,
+            'content': comment.content,
             'user': {
                 'id': request.user.id,
                 'username': request.user.username,
@@ -313,6 +460,8 @@ def add_comment(request, pk):
     except Artwork.DoesNotExist:
         return JsonResponse({'error': 'Artwork not found'}, status=404)
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
 
 
@@ -683,4 +832,69 @@ def get_categories(request):
         ]
         return JsonResponse(data, safe=False)
     except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+    
+@csrf_exempt
+@require_http_methods(["POST"])
+def update_artwork(request, pk):
+    """Update artwork using POST"""
+    try:
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        artwork = Artwork.objects.get(pk=pk)
+        
+        # Check if user is owner or staff
+        if artwork.artist != request.user and not request.user.is_staff:
+            return JsonResponse({'error': 'Permission denied'}, status=403)
+        
+        # Get form data
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        category_name = request.POST.get('category')
+        style = request.POST.get('style')
+        image = request.FILES.get('image')
+        
+        print(f"Update data - Title: {title}, Category: {category_name}, Style: {style}, Has Image: {image is not None}")
+        
+        # Update fields if provided
+        if title:
+            artwork.title = title
+            print(f"Updated title to: {title}")
+        if description is not None:
+            artwork.description = description
+            print(f"Updated description")
+        if category_name:
+            category, _ = Category.objects.get_or_create(name=category_name)
+            artwork.category = category
+            print(f"Updated category to: {category_name}")
+        if style:
+            artwork.style = style
+            print(f"Updated style to: {style}")
+        if image:
+            # Delete old image if exists
+            if artwork.image:
+                try:
+                    import os
+                    old_path = artwork.image.path
+                    if os.path.exists(old_path):
+                        os.remove(old_path)
+                except Exception as e:
+                    print(f"Error deleting old image: {e}")
+            artwork.image = image
+            print(f"Updated image")
+        
+        artwork.save()
+        print(f"Artwork saved - ID: {artwork.id}")
+        
+        return JsonResponse({
+            'message': 'Artwork updated successfully',
+            'id': artwork.id
+        })
+        
+    except Artwork.DoesNotExist:
+        return JsonResponse({'error': 'Artwork not found'}, status=404)
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)

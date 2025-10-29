@@ -173,21 +173,20 @@ export const api = {
   },
 
   async updateArtwork(id: number, formData: FormData): Promise<{ message: string }> {
-    const response = await fetch(`${API_BASE_URL}/artworks/${id}/`, {
-      method: 'PUT',
-      headers: getAuthHeader(),
-      credentials: 'include',
-      body: formData,
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to update artwork');
-    }
-    
-    return response.json();
-  },
-
+  const response = await fetch(`${API_BASE_URL}/artworks/${id}/update/`, {
+    method: 'POST',  // Changed from PUT to POST
+    headers: getAuthHeader(),
+    credentials: 'include',
+    body: formData,
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to update artwork');
+  }
+  
+  return response.json();
+},
   async deleteArtwork(id: number): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/artworks/${id}/`, {
       method: 'DELETE',
@@ -622,6 +621,7 @@ export const api = {
     
     return response.json();
   },
+  
 
   // ============ Categories ============
   

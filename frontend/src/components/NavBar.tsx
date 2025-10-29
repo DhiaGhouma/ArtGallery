@@ -11,13 +11,16 @@ const Navbar = () => {
 
   return (
     <nav className="sticky top-0 z-50 glass-effect border-b border-border">
-      <div className="container mx-auto px-4 py-4">
+      <div className="container mx-auto ">
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center glow-effect">
-              <Image className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-2xl font-bold gradient-text hidden sm:block">ArtVerse</span>
+            <img
+              src="/logo.png"
+               alt="ArtVerse Logo"
+               className="w-20 h-20 object-contain"
+            />
+
+
           </Link>
 
           <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
