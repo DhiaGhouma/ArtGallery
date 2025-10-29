@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload as UploadIcon, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Upload as UploadIcon, Image as ImageIcon, Loader2, DollarSign } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 
 const Upload = () => {
@@ -16,6 +17,8 @@ const Upload = () => {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
   const [style, setStyle] = useState('');
+  const [price, setPrice] = useState('0');
+  const [inStock, setInStock] = useState(true);
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string>('');
   const [uploading, setUploading] = useState(false);
@@ -68,6 +71,8 @@ const Upload = () => {
       formData.append('description', description);
       formData.append('category', category);
       formData.append('style', style);
+      formData.append('price', price);
+      formData.append('in_stock', inStock.toString());
 
       // Simulate progress
       const interval = setInterval(() => {
@@ -210,10 +215,12 @@ const Upload = () => {
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="digital">Digital Art</SelectItem>
-                    <SelectItem value="painting">Painting</SelectItem>
-                    <SelectItem value="photography">Photography</SelectItem>
-                    <SelectItem value="3d">3D Art</SelectItem>
+                    <SelectItem value="Digital">Digital Art</SelectItem>
+                    <SelectItem value="Painting">Painting</SelectItem>
+                    <SelectItem value="Photography">Photography</SelectItem>
+                    <SelectItem value="3D">3D Art</SelectItem>
+                    <SelectItem value="Abstract">Abstract</SelectItem>
+                    <SelectItem value="Landscape">Landscape</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -228,11 +235,57 @@ const Upload = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="abstract">Abstract</SelectItem>
-                    <SelectItem value="realism">Realism</SelectItem>
-                    <SelectItem value="surreal">Surreal</SelectItem>
-                    <SelectItem value="minimalist">Minimalist</SelectItem>
+                    <SelectItem value="realistic">Realistic</SelectItem>
+                    <SelectItem value="digital">Digital Art</SelectItem>
+                    <SelectItem value="generative">Generative Art</SelectItem>
+                    <SelectItem value="photography">Photography</SelectItem>
+                    <SelectItem value="mixed">Mixed Media</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            {/* Price & In Stock */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Label htmlFor="price" className="text-lg font-semibold mb-2 block">
+                  Price ($)
+                </Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    className="bg-background/50 pl-10"
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Set to 0 for free artworks
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="in_stock" className="text-lg font-semibold mb-2 block">
+                  Availability
+                </Label>
+                <div className="flex items-center justify-between p-4 rounded-xl bg-background/50 border">
+                  <div>
+                    <p className="font-medium">In Stock</p>
+                    <p className="text-sm text-muted-foreground">
+                      {inStock ? 'Available for purchase' : 'Not available'}
+                    </p>
+                  </div>
+                  <Switch
+                    id="in_stock"
+                    checked={inStock}
+                    onCheckedChange={setInStock}
+                  />
+                </div>
               </div>
             </div>
 
