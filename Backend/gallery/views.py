@@ -13,6 +13,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.utils import timezone
 from datetime import timedelta
 import json
+from .ai_service import generate_comment_suggestions
 
 
 # ============ Helper Functions ============
@@ -487,6 +488,48 @@ def delete_comment(request, pk):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+# ============ AI Comment Suggestions ============
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def suggest_comments(request, pk):
+    """
+    Generate AI-powered comment suggestions for an artwork
+    POST /artworks/{pk}/suggest-comments/
+    """
+    try:
+        # Check authentication
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        # Get the artwork
+        artwork = Artwork.objects.get(pk=pk)
+        
+        # Generate suggestions using AI
+        suggestions = generate_comment_suggestions(
+            artwork_title=artwork.title,
+            artwork_description=artwork.description or 'An artwork',
+            artwork_style=artwork.style,
+            num_suggestions=3
+        )
+        
+        return JsonResponse({
+            'suggestions': suggestions,
+            'artwork_id': artwork.id,
+            'artwork_title': artwork.title
+        })
+        
+    except Artwork.DoesNotExist:
+        return JsonResponse({'error': 'Artwork not found'}, status=404)
+    except Exception as e:
+        # Log error in production
+        print(f"AI suggestion error: {str(e)}")
+        return JsonResponse({
+            'error': 'Failed to generate suggestions. Please try again.',
+            'details': str(e)
+        }, status=500)
+
+
 # ============ Authentication ============
 
 @csrf_exempt
@@ -692,6 +735,44 @@ def upload_avatar(request):
 
 # ============ Reports ============
 
+@csrf_exempt  # désactive CSRF pour test avec Postman
+@require_http_methods(["POST"])
+def create_report(request):
+    """Create a new report for an artwork or comment"""
+    try:
+        print("=== RAW BODY ===", request.body)
+
+        data = json.loads(request.body.decode("utf-8"))
+        reporter_id = data.get("reporter_id")
+        artwork_id = data.get("artwork_id")
+        comment_id = data.get("comment_id")
+        reason = data.get("reason")
+        description = data.get("description", "")
+
+        if not reporter_id or not reason:
+            return JsonResponse({"error": "reporter_id and reason are required"}, status=400)
+
+        reporter = get_object_or_404(User, id=reporter_id)
+        artwork = Artwork.objects.filter(id=artwork_id).first() if artwork_id else None
+        comment = Comment.objects.filter(id=comment_id).first() if comment_id else None
+
+        report = Report.objects.create(
+            reporter=reporter,
+            artwork=artwork,
+            comment=comment,
+            reason=reason,
+            description=description
+        )
+
+        return JsonResponse({
+            "message": "Report created successfully",
+            "report_id": report.id
+        }, status=201)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
 @require_http_methods(["GET"])
 @staff_member_required
 def get_reports(request):
@@ -741,7 +822,7 @@ def get_reports(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
-@staff_member_required
+#@staff_member_required
 def resolve_report(request, report_id):
     """Resolve a report (admin only)"""
     try:
@@ -756,6 +837,27 @@ def resolve_report(request, report_id):
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+    
+    
+@csrf_exempt
+@require_http_methods(["POST"])
+@staff_member_required
+def ban_user(request, user_id):
+    """Ban permanently a user (admin only)"""
+    try:
+        user = get_object_or_404(User, id=user_id)
+        # Artwork.objects.filter(artist=user).delete()
+        user.is_active = False  # désactive le compte
+        user.save()
+
+        return JsonResponse({
+            "message": f"User {user.username} has been permanently banned.",
+            "user_id": user.id,
+            "banned": True
+        }, status=200)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
 
 
 # ============ Admin - Users ============

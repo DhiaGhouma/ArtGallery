@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Artwork, Category, Comment, UserProfile, Like, Report
+from django.http import JsonResponse
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -60,6 +61,7 @@ class ArtworkSerializer(serializers.ModelSerializer):
         required=False
     )
     likes_count = serializers.SerializerMethodField()
+    comments_count = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
     
     class Meta:
@@ -74,6 +76,7 @@ class ArtworkSerializer(serializers.ModelSerializer):
             'style',
             'artist',
             'likes_count',
+            'comments_count',
             'views',
             'is_liked',
             'is_featured',
@@ -85,6 +88,10 @@ class ArtworkSerializer(serializers.ModelSerializer):
     def get_likes_count(self, obj):
         """Get the count of likes for this artwork"""
         return obj.likes.count()
+    
+    def get_comments_count(self, obj):
+        """Get the count of comments for this artwork"""
+        return obj.comments.count()
     
     def get_is_liked(self, obj):
         """Check if the current user has liked this artwork"""
@@ -117,6 +124,7 @@ class ReportSerializer(serializers.ModelSerializer):
     """Serializer for Report model"""
     reporter = SimpleUserSerializer(read_only=True)
     artwork = serializers.SerializerMethodField()
+    
     comment = serializers.SerializerMethodField()
     
     class Meta:
@@ -139,7 +147,9 @@ class ReportSerializer(serializers.ModelSerializer):
             return {
                 'id': obj.artwork.id,
                 'title': obj.artwork.title,
-                'image': obj.artwork.image.url if obj.artwork.image else None
+                'image': obj.artwork.image.url if obj.artwork.image else None,
+                'artist': SimpleUserSerializer(obj.artwork.artist).data  # <-- ajouté
+
             }
         return None
     
@@ -155,6 +165,10 @@ class ReportSerializer(serializers.ModelSerializer):
                 }
             }
         return None
+    def list_reports(request):
+        reports = Report.objects.all()
+        serializer = ReportSerializer(reports, many=True, context={'request': request})
+        return JsonResponse(serializer.data, safe=False)
 
 
 class RegisterSerializer(serializers.ModelSerializer):

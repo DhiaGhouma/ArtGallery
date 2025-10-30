@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { api, Report } from '@/lib/api';
+import { api, Report ,Artwork } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { AlertTriangle, CheckCircle, Trash2 } from 'lucide-react';
 
@@ -19,10 +19,10 @@ export const TakeActionDialog = ({
   onActionComplete,
 }: TakeActionDialogProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<'resolve' | 'delete-artwork' | 'delete-comment' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'resolve' | 'delete-artwork' | 'delete-comment' | 'ban-user' | null>(null);
   const { toast } = useToast();
 
-  const handleAction = async (action: 'resolve' | 'delete-artwork' | 'delete-comment') => {
+  const handleAction = async (action: 'resolve' | 'delete-artwork' | 'delete-comment' | 'ban-user') => {
     if (!report) return;
 
     setIsProcessing(true);
@@ -56,6 +56,55 @@ export const TakeActionDialog = ({
             });
           }
           break;
+
+        case 'ban-user':
+  if (!report.artwork?.artist) {
+    // Fetch full artwork details to get artist info
+    try {
+      const fullArtwork = await api.getArtwork(report.artwork!.id);
+      
+      // Resolve report BEFORE banning (which deletes artworks)
+      await api.resolveReport(report.id);
+      await api.deleteArtwork(report.artwork.id);
+      await api.banUser(report.artwork!.artist.id);
+      
+      toast({
+        title: 'User banned',
+        description: `The user ${report.artwork.artist.username} has been permanently banned and all their artworks removed.`,
+      });
+    } catch (error) {
+      console.error('Failed to ban user:', error);
+      toast({
+        title: 'Error',
+        description: 'Cannot ban user: failed to fetch artist info',
+        variant: 'destructive',
+      });
+    }
+    break;
+  }
+
+  // Resolve report BEFORE banning (which deletes artworks)
+  try {
+    await api.resolveReport(report.id);
+    await api.banUser(report.artwork.artist.id);
+    toast({
+      title: 'User banned',
+      description: `The user ${report.artwork.artist.username} has been permanently banned and all their artworks removed.`,
+    });
+  } catch (error) {
+    console.error('Failed to ban user:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to ban user. Please try again.',
+      variant: 'destructive',
+    });
+  }
+  break;
+
+  
+
+
+
       }
 
       setConfirmAction(null);
@@ -179,6 +228,20 @@ export const TakeActionDialog = ({
                 <div className="text-xs text-muted-foreground">Remove the artwork permanently</div>
               </div>
             </Button>
+            <Button
+  onClick={() => setConfirmAction('ban-user')}
+  className="w-full justify-start gap-3 h-auto py-4 bg-destructive/10 hover:bg-destructive/20 text-foreground border border-destructive/20"
+  disabled={isProcessing}
+>
+  <Trash2 className="h-5 w-5 text-destructive" />
+  <div className="text-left">
+    <div className="font-medium">Ban User</div>
+    <div className="text-xs text-muted-foreground">
+      Permanently ban the user who created this artwork
+    </div>
+  </div>
+</Button>
+
 
             {report.comment && (
               <Button
@@ -192,6 +255,8 @@ export const TakeActionDialog = ({
                   <div className="text-xs text-muted-foreground">Remove only the comment</div>
                 </div>
               </Button>
+              
+              
             )}
           </div>
 

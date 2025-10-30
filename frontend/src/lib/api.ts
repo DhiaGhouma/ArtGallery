@@ -15,6 +15,7 @@ export interface Artwork {
     avatar?: string;
   };
   likes_count: number;
+  comments_count: number;
   views: number;
   is_liked?: boolean;
   is_featured?: boolean;
@@ -44,6 +45,10 @@ export interface Report {
     id: number;
     title: string;
     image: string;
+    artist: {                
+      id: number;
+      username: string;
+    };
   };
   comment?: {
     id: number;
@@ -51,7 +56,6 @@ export interface Report {
   };
   reason: string;
   description?: string;
-  is_resolved: boolean;
   resolved?: boolean;
   created_at: string;
 }
@@ -116,6 +120,8 @@ export const api = {
     category?: string; 
     style?: string;
     featured?: boolean;
+    page?: number;
+    sort?: string;
   }): Promise<Artwork[]> {
     const queryParams = new URLSearchParams();
     if (params?.search) queryParams.append('search', params.search);
@@ -127,6 +133,12 @@ export const api = {
     }
     if (params?.featured) {
       queryParams.append('featured', 'true');
+    }
+    if (params?.page) {
+      queryParams.append('page', params.page.toString());
+    }
+    if (params?.sort) {
+      queryParams.append('sort', params.sort);
     }
 
     const queryString = queryParams.toString();
@@ -188,17 +200,18 @@ export const api = {
   return response.json();
 },
   async deleteArtwork(id: number): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/artworks/${id}/`, {
-      method: 'DELETE',
-      headers: getAuthHeader(),
-      credentials: 'include',
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to delete artwork');
-    }
-  },
+  const response = await fetch(`${API_BASE_URL}/artworks/${id}/delete/`, {  // <--- ici
+    method: 'DELETE',
+    headers: getAuthHeader(),
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to delete artwork');
+  }
+},
+
 
   // ============ Likes ============
   
@@ -273,7 +286,27 @@ export const api = {
     }
   },
 
-  // ============ Authentication ============
+  // ============ AI Comment Suggestions ============
+  
+  async getCommentSuggestions(artworkId: number): Promise<{ suggestions: string[]; artwork_id: number; artwork_title: string }> {
+    const response = await fetch(`${API_BASE_URL}/artworks/${artworkId}/suggest-comments/`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to generate suggestions');
+    }
+    
+    return response.json();
+  },
+
+  // ============ Reports ============
   
   async register(data: { 
     username: string; 
@@ -410,9 +443,22 @@ export const api = {
   },
 
   // ============ Reports ============
+  async banUser(id: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/users/${id}/ban/`, {
+    method: 'POST',
+    headers: getAuthHeader(),
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to ban user');
+  }
+},
+
   
   async getReports(): Promise<Report[]> {
-    const response = await fetch(`${API_BASE_URL}/reports/`, {
+    const response = await fetch(`${API_BASE_URL}/reports/all/`, {
       credentials: 'include',
       headers: getAuthHeader(),
     });

@@ -14,7 +14,7 @@ interface MarketplaceArtwork {
   price: number;
   image: string;
   category: string;
-  likes?: number;
+  likes_count?: number;
   views?: number;
   inStock: boolean;
   featured?: boolean;
@@ -30,12 +30,12 @@ const Marketplace = () => {
   const [sortBy, setSortBy] = useState('featured');
 
   const artworks: MarketplaceArtwork[] = [
-    { id: 1, title: 'Liquid Dreams', artist: 'AbstractMaster', price: 299, image: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=600', category: 'Abstract', likes: 234, views: 1203, inStock: true, featured: true },
-    { id: 2, title: 'Neon Nights', artist: 'DigitalDreamer', price: 450, image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600', category: 'Digital', likes: 456, views: 2301, inStock: true, featured: true },
-    { id: 3, title: 'Ocean Serenity', artist: 'WaveArtist', price: 175, image: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=600', category: 'Landscape', likes: 189, views: 892, inStock: true },
-    { id: 4, title: 'Urban Chaos', artist: 'CityScaper', price: 320, image: 'https://images.unsplash.com/photo-1549887534-1541e9326642?w=600', category: 'Urban', likes: 301, views: 1456, inStock: false },
-    { id: 5, title: 'Cosmic Journey', artist: 'StarGazer', price: 520, image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600', category: 'Surreal', likes: 678, views: 3201, inStock: true, featured: true },
-    { id: 6, title: 'Floral Explosion', artist: 'NatureBloom', price: 210, image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600', category: 'Nature', likes: 412, views: 1789, inStock: true },
+    { id: 1, title: 'Liquid Dreams', artist: 'AbstractMaster', price: 299, image: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=600', category: 'Abstract', likes_count: 234, views: 1203, inStock: true, featured: true },
+    { id: 2, title: 'Neon Nights', artist: 'DigitalDreamer', price: 450, image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600', category: 'Digital', likes_count: 456, views: 2301, inStock: true, featured: true },
+    { id: 3, title: 'Ocean Serenity', artist: 'WaveArtist', price: 175, image: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=600', category: 'Landscape', likes_count: 189, views: 892, inStock: true },
+    { id: 4, title: 'Urban Chaos', artist: 'CityScaper', price: 320, image: 'https://images.unsplash.com/photo-1549887534-1541e9326642?w=600', category: 'Urban', likes_count: 301, views: 1456, inStock: false },
+    { id: 5, title: 'Cosmic Journey', artist: 'StarGazer', price: 520, image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600', category: 'Surreal', likes_count: 678, views: 3201, inStock: true, featured: true },
+    { id: 6, title: 'Floral Explosion', artist: 'NatureBloom', price: 210, image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600', category: 'Nature', likes_count: 412, views: 1789, inStock: true },
   ];
 
   // Filtered & sorted artworks
@@ -55,7 +55,7 @@ const Marketplace = () => {
         switch (sortBy) {
           case 'price-low': return (a.price ?? 0) - (b.price ?? 0);
           case 'price-high': return (b.price ?? 0) - (a.price ?? 0);
-          case 'popular': return (b.likes ?? 0) - (a.likes ?? 0);
+          case 'popular': return (b.likes_count ?? 0) - (a.likes_count ?? 0);
           case 'newest': return b.id - a.id; // assuming higher ID = newer
           case 'featured': return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
           default: return 0;
@@ -170,7 +170,7 @@ const Marketplace = () => {
                     <span className="text-2xl font-bold text-gold">{artwork.price}</span>
                   </div>
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1"><Heart className="w-4 h-4" />{artwork.likes ?? 0}</span>
+                    <span className="flex items-center gap-1"><Heart className="w-4 h-4" />{artwork.likes_count ?? 0}</span>
                     <span className="flex items-center gap-1"><Eye className="w-4 h-4" />{artwork.views ?? 0}</span>
                   </div>
                 </div>
