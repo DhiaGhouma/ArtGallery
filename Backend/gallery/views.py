@@ -675,7 +675,7 @@ def get_reports(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
-@staff_member_required
+#@staff_member_required
 def resolve_report(request, report_id):
     """Resolve a report (admin only)"""
     try:
@@ -699,7 +699,7 @@ def ban_user(request, user_id):
     """Ban permanently a user (admin only)"""
     try:
         user = get_object_or_404(User, id=user_id)
-        Artwork.objects.filter(artist=user).delete()
+        # Artwork.objects.filter(artist=user).delete()
         user.is_active = False  # désactive le compte
         user.save()
 

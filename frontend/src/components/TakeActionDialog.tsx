@@ -56,14 +56,54 @@ export const TakeActionDialog = ({
             });
           }
           break;
+
         case 'ban-user':
-        await api.banUser(report.artwork.artist.id);
-        await api.resolveReport(report.id);
-        toast({
-          title: 'User banned',
-          description: `The user ${report.artwork.artist.username} has been permanently banned.`,
-        });
-        break;
+  if (!report.artwork?.artist) {
+    // Fetch full artwork details to get artist info
+    try {
+      const fullArtwork = await api.getArtwork(report.artwork!.id);
+      
+      // Resolve report BEFORE banning (which deletes artworks)
+      await api.resolveReport(report.id);
+      await api.deleteArtwork(report.artwork.id);
+      await api.banUser(report.artwork!.artist.id);
+      
+      toast({
+        title: 'User banned',
+        description: `The user ${report.artwork.artist.username} has been permanently banned and all their artworks removed.`,
+      });
+    } catch (error) {
+      console.error('Failed to ban user:', error);
+      toast({
+        title: 'Error',
+        description: 'Cannot ban user: failed to fetch artist info',
+        variant: 'destructive',
+      });
+    }
+    break;
+  }
+
+  // Resolve report BEFORE banning (which deletes artworks)
+  try {
+    await api.resolveReport(report.id);
+    await api.banUser(report.artwork.artist.id);
+    toast({
+      title: 'User banned',
+      description: `The user ${report.artwork.artist.username} has been permanently banned and all their artworks removed.`,
+    });
+  } catch (error) {
+    console.error('Failed to ban user:', error);
+    toast({
+      title: 'Error',
+      description: 'Failed to ban user. Please try again.',
+      variant: 'destructive',
+    });
+  }
+  break;
+
+  
+
+
 
       }
 

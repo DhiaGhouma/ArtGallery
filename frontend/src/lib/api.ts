@@ -56,7 +56,6 @@ export interface Report {
   };
   reason: string;
   description?: string;
-  is_resolved: boolean;
   resolved?: boolean;
   created_at: string;
 }
@@ -202,17 +201,18 @@ export const api = {
   },
 
   async deleteArtwork(id: number): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/artworks/${id}/`, {
-      method: 'DELETE',
-      headers: getAuthHeader(),
-      credentials: 'include',
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to delete artwork');
-    }
-  },
+  const response = await fetch(`${API_BASE_URL}/artworks/${id}/delete/`, {  // <--- ici
+    method: 'DELETE',
+    headers: getAuthHeader(),
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to delete artwork');
+  }
+},
+
 
   // ============ Likes ============
   

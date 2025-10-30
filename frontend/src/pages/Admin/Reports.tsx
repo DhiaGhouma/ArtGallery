@@ -90,7 +90,7 @@ export default function Reports() {
               <AlertCircle className="h-8 w-8 text-destructive" />
               <div>
                 <p className="text-sm text-muted-foreground">Pending</p>
-                <p className="text-2xl font-bold">{reports.filter(r => !r.is_resolved).length}</p>
+                <p className="text-2xl font-bold">{reports.filter(r => !r.resolved).length}</p>
               </div>
             </div>
           </div>
@@ -99,7 +99,7 @@ export default function Reports() {
               <CheckCircle2 className="h-8 w-8 text-primary" />
               <div>
                 <p className="text-sm text-muted-foreground">Resolved</p>
-                <p className="text-2xl font-bold">{reports.filter(r => r.is_resolved).length}</p>
+                <p className="text-2xl font-bold">{reports.filter(r => r.resolved).length}</p>
               </div>
             </div>
           </div>
@@ -172,7 +172,7 @@ export default function Reports() {
                         {new Date(report.created_at).toLocaleDateString()}
                       </TableCell>
                       <TableCell>
-                        {report.is_resolved ? (
+                        {report.resolved ? (
                           <Badge className="bg-primary/20 text-primary border-primary/40">
                             Resolved
                           </Badge>
@@ -186,7 +186,7 @@ export default function Reports() {
                         <Button
                           size="sm"
                           onClick={() => handleTakeAction(report)}
-                          disabled={report.is_resolved}
+                          disabled={report.resolved}
                           className="bg-primary hover:bg-primary/90"
                         >
                           Take Action
