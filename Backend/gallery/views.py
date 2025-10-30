@@ -18,6 +18,8 @@ import json
 import os
 from .ai_service import generate_comment_suggestions
 from .serializers import ReportSerializer
+from rest_framework.response import Response
+
 
 load_dotenv()
 
@@ -579,8 +581,9 @@ def add_comment(request, pk):
 @require_http_methods(["DELETE"])
 def delete_comment(request, pk):
     comment = get_object_or_404(Comment, pk=pk)
-    comment.soft_delete(by_user=request.user if request.user.is_authenticated else None)
-    return JsonResponse({'message': 'comment deactivated', 'id': comment.id, 'is_active': comment.is_active})
+    comment.is_deleted = True
+    comment.save(update_fields=['is_deleted'])
+    return Response(status=204)
 
 
 # ============ AI Comment Suggestions ============
