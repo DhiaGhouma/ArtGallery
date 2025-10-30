@@ -2,6 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Sparkles, TrendingUp, Clock, Zap, Heart, MessageCircle, Eye, Flame, Palette } from 'lucide-react';
 import { api } from '@/lib/api';
 import ArtworkCard from '@/components/ArtworkCard';
+import { useNavigate } from 'react-router-dom';
+
+
 
 const Explore = () => {
   const [artworks, setArtworks] = useState([]);
@@ -13,6 +16,7 @@ const Explore = () => {
   const [showInspiration, setShowInspiration] = useState(false);
   const observerRef = useRef(null);
   const lastArtworkRef = useRef(null);
+  const navigate = useNavigate();
 
   const filters = [
     { id: 'all', label: 'All', icon: Flame },
@@ -56,7 +60,7 @@ const Explore = () => {
 
   const handleFilterClick = (filterId, isLink, isInspiration) => {
     if (filterId === 'generate' && isLink) {
-      window.location.href = 'http://localhost:8081/ai-image-modifier';
+      navigate('/ai-image-modifier'); ;
     } else if (filterId === 'inspiration' && isInspiration) {
       setShowInspiration(true);
       setFilter('inspiration');
@@ -79,9 +83,8 @@ const Explore = () => {
       const backendArtworks = Array.isArray(response) ? response : [];
 
       // New API artworks
-      const rijksArtworks = await loadRijksmuseumArtworks();
 
-      let combined = [...backendArtworks, ...rijksArtworks];
+      let combined = [...backendArtworks];
 
       // Apply sorting based on filter
       switch (filter) {
