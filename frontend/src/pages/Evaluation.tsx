@@ -1,24 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Sparkles, Award, Star, RefreshCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import axios from 'axios';
-
-interface Evaluation {
-  id: number;
-  user: string;
-  score: number;
-  badge: string;
-  last_evaluated: string;
-}
+import { api, Evaluation as EvalType } from '@/lib/api';
 
 const Evaluation = () => {
-  const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
+  const [evaluations, setEvaluations] = useState<EvalType[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchEvaluations = async () => {
     try {
-      const res = await axios.get('http://localhost:8000/evaluation/evaluations/');
-      setEvaluations(res.data);
+      const data = await api.evaluation.getEvaluations();
+      setEvaluations(data);
     } catch (error) {
       console.error('Erreur lors du chargement des évaluations:', error);
     }
@@ -27,12 +19,12 @@ const Evaluation = () => {
   const evaluateUser = async (userId: number) => {
     setLoading(true);
     try {
-      const res = await axios.post(`http://localhost:8000/evaluation/evaluations/${userId}/evaluate/`);
-      alert(`Évaluation terminée : Score ${res.data.score} - Badge ${res.data.badge}`);
+      const data = await api.evaluation.evaluateUser(userId);
+      alert(`Évaluation terminée : Score ${data.score} - Badge ${data.badge}`);
       fetchEvaluations();
     } catch (error) {
+      console.error('Erreur lors de l’évaluation IA:', error);
       alert('Erreur lors de l’évaluation IA');
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -45,6 +37,7 @@ const Evaluation = () => {
   return (
     <div className="min-h-screen py-20">
       <div className="container mx-auto px-4">
+        {/* Header */}
         <div className="text-center mb-12 animate-fade-in">
           <h1 className="text-5xl sm:text-7xl font-bold gradient-text mb-4">Évaluation IA</h1>
           <p className="text-xl text-muted-foreground">
@@ -53,6 +46,7 @@ const Evaluation = () => {
         </div>
 
         <div className="glass-effect rounded-2xl p-6 space-y-6 animate-scale-in">
+          {/* Section Classement */}
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-semibold gradient-text flex items-center gap-2">
               <Award className="w-6 h-6 text-primary" /> Classement des artistes

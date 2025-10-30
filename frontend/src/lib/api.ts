@@ -87,6 +87,14 @@ export interface RegisterResponse {
   user: User;
 }
 
+export interface Evaluation {
+  id: number;
+  user: string;
+  score: number;
+  badge: string;
+  last_evaluated: string;
+}
+
 // Helper to get CSRF token from cookies
 const getCookie = (name: string): string | null => {
   let cookieValue = null;
@@ -685,5 +693,26 @@ export const api = {
     }
     
     return response.json();
+  },
+
+  // ============ Evaluation ============
+  evaluation: {
+    async getEvaluations(): Promise<Evaluation[]> {
+      const res = await fetch(`${API_BASE_URL}/evaluation/evaluations/`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to fetch evaluations');
+      return res.json();
+    },
+
+    async evaluateUser(userId: number): Promise<Evaluation> {
+      const res = await fetch(`${API_BASE_URL}/evaluation/evaluations/${userId}/evaluate/`, {
+        method: 'POST',
+        headers: getAuthHeader(),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to evaluate user');
+      return res.json();
+    },
   },
 };
