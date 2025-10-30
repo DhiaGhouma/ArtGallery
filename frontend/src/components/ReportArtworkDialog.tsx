@@ -34,7 +34,7 @@ export const ReportArtworkDialog = ({
   onReportSubmitted,
 }: ReportArtworkDialogProps) => {
   const [reason, setReason] = useState('');
-  const [customReason, setCustomReason] = useState('');
+  const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -62,11 +62,12 @@ export const ReportArtworkDialog = ({
     setIsSubmitting(true);
 
     try {
-      const finalReason = reason === 'Other' ? customReason : reason;
+      console.log({ artworkId, commentId, reason, description });
       await api.createReport({
         artwork_id: artworkId,
         comment_id: commentId,
-        reason: finalReason,
+        reason: reason,
+        description: description.trim() || undefined, // Envoyer seulement si non vide
       });
 
       toast({
@@ -74,14 +75,15 @@ export const ReportArtworkDialog = ({
         description: 'Thank you for helping keep our community safe.',
       });
 
+      // Reset form
       setReason('');
-      setCustomReason('');
+      setDescription('');
       onOpenChange(false);
       onReportSubmitted?.();
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to submit report. Please try again.',
+        description: error.message || 'Failed to submit report. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -103,8 +105,9 @@ export const ReportArtworkDialog = ({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 mt-4">
+          {/* Reason Selection */}
           <div className="space-y-2">
-            <Label htmlFor="reason">Reason for report</Label>
+            <Label htmlFor="reason">Reason for report *</Label>
             <Select value={reason} onValueChange={setReason}>
               <SelectTrigger id="reason" className="bg-background/50 border-primary/20">
                 <SelectValue placeholder="Select a reason" />
@@ -119,32 +122,41 @@ export const ReportArtworkDialog = ({
             </Select>
           </div>
 
-          {reason === 'Other' && (
-            <div className="space-y-2 animate-fade-in">
-              <Label htmlFor="customReason">Please specify</Label>
-              <Textarea
-                id="customReason"
-                value={customReason}
-                onChange={(e) => setCustomReason(e.target.value)}
-                placeholder="Describe the issue..."
-                className="min-h-[100px] bg-background/50 border-primary/20 resize-none"
-                required
-              />
-            </div>
-          )}
+          {/* Additional Details */}
+          <div className="space-y-2">
+            <Label htmlFor="description">
+              Additional details <span className="text-muted-foreground text-xs">(optional)</span>
+            </Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Provide more context about this report..."
+              className="min-h-[100px] bg-background/50 border-primary/20 resize-none"
+              maxLength={500}
+            />
+            <p className="text-xs text-muted-foreground text-right">
+              {description.length}/500 characters
+            </p>
+          </div>
 
+          {/* Action Buttons */}
           <div className="flex gap-3 justify-end">
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                setReason('');
+                setDescription('');
+                onOpenChange(false);
+              }}
               disabled={isSubmitting}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              disabled={isSubmitting || !reason || (reason === 'Other' && !customReason)}
+              disabled={isSubmitting || !reason}
               className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
             >
               {isSubmitting ? 'Submitting...' : 'Submit Report'}

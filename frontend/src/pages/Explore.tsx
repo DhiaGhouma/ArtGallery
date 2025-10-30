@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Sparkles, TrendingUp, Clock, Zap, Heart, MessageCircle, Eye, X, Send } from 'lucide-react';
+import { Sparkles, TrendingUp, Clock, Zap, Heart, MessageCircle, Eye, X, Send, Flag } from 'lucide-react';
 import { api } from '@/lib/api';
+import { ReportArtworkDialog } from '@/components/ReportArtworkDialog';
 
 const Explore = () => {
   const [artworks, setArtworks] = useState([]);
@@ -12,6 +13,7 @@ const Explore = () => {
   const [commentText, setCommentText] = useState('');
   const [sendingComment, setSendingComment] = useState(false);
   const [likeAnimations, setLikeAnimations] = useState({});
+  const [reportDialog, setReportDialog] = useState({ open: false, artworkId: null });
   const observerRef = useRef(null);
   const lastArtworkRef = useRef(null);
 
@@ -140,6 +142,19 @@ const Explore = () => {
     }
   };
 
+  const openReportDialog = (artworkId) => {
+    setReportDialog({ open: true, artworkId });
+  };
+
+  const closeReportDialog = () => {
+    setReportDialog({ open: false, artworkId: null });
+  };
+
+  const handleReportSubmitted = () => {
+    console.log('Report submitted successfully');
+    closeReportDialog();
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
       {/* Animated Background Grid */}
@@ -250,6 +265,13 @@ const Explore = () => {
                       className="p-3 rounded-full bg-blue-500/30 backdrop-blur-md border border-blue-400/50 hover:bg-blue-500/50 transition-all hover:scale-110"
                     >
                       <MessageCircle className="w-6 h-6 text-white" />
+                    </button>
+                    <button 
+                      onClick={() => openReportDialog(artwork.id)}
+                      className="p-3 rounded-full bg-orange-500/30 backdrop-blur-md border border-orange-400/50 hover:bg-orange-500/50 transition-all hover:scale-110"
+                      title="Report artwork"
+                    >
+                      <Flag className="w-6 h-6 text-white" />
                     </button>
                   </div>
                 </div>
@@ -367,6 +389,16 @@ const Explore = () => {
           </div>
         </div>
       )}
+
+      {/* Report Dialog */}
+      <ReportArtworkDialog
+        open={reportDialog.open}
+        onOpenChange={closeReportDialog}
+        artworkId={reportDialog.artworkId}
+        onReportSubmitted={() => {
+          closeReportDialog();
+        }}
+      />
 
       <style>{`
         @keyframes fadeIn {

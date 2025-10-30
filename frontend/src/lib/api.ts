@@ -472,28 +472,38 @@ export const api = {
   },
 
   async createReport(data: {
-    artwork_id?: number;
-    comment_id?: number;
-    reason: string;
-    description?: string;
-  }): Promise<Report> {
-    const response = await fetch(`${API_BASE_URL}/reports/`, {
-      method: 'POST',
-      headers: {
-        ...getAuthHeader(),
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify(data),
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to create report');
-    }
-    
-    return response.json();
-  },
+  artwork_id?: number;
+  comment_id?: number;
+  reason: string;
+  description?: string;
+}): Promise<Report> {
+  // D'abord, récupérer l'utilisateur actuel
+  const authResponse = await this.checkAuth();
+  
+  if (!authResponse.authenticated || !authResponse.user) {
+    throw new Error('You must be logged in to report content');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/reports/`, {
+    method: 'POST',
+    headers: {
+      ...getAuthHeader(),
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({
+      ...data,
+      reporter_id: authResponse.user.id, // Ajouter le reporter_id
+    }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to create report');
+  }
+  
+  return response.json();
+},
 
   async resolveReport(id: number): Promise<Report> {
     const response = await fetch(`${API_BASE_URL}/reports/${id}/resolve/`, {
