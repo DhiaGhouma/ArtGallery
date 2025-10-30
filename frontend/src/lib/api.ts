@@ -1,5 +1,5 @@
 // API service for Django REST API backend
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://artgallery-1-2sie.onrender.com/api' ;
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // Types
 export interface Artwork {
@@ -91,7 +91,7 @@ export interface RegisterResponse {
 
 export interface Evaluation {
   id: number;
-  user: string;
+  user: User; 
   score: number;
   badge: string;
   last_evaluated: string;
@@ -816,23 +816,24 @@ async generateDescription(data: {
   },
 
   // ============ Evaluation ============
-  evaluation: {
-    async getEvaluations(): Promise<Evaluation[]> {
-      const res = await fetch(`${API_BASE_URL}/evaluation/evaluations/`, {
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Failed to fetch evaluations');
-      return res.json();
-    },
-
-    async evaluateUser(userId: number): Promise<Evaluation> {
-      const res = await fetch(`${API_BASE_URL}/evaluation/evaluations/${userId}/evaluate/`, {
-        method: 'POST',
-        headers: getAuthHeader(),
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Failed to evaluate user');
-      return res.json();
-    },
+evaluation: {
+  async getEvaluations(): Promise<Evaluation[]> {
+    // Changer l'URL pour correspondre à ton urls.py
+    const res = await fetch(`${API_BASE_URL}/evaluation/evaluations/all/`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to fetch evaluations');
+    return res.json();
   },
+
+  async evaluateUser(userId: number): Promise<Evaluation> {
+  const res = await fetch(`${API_BASE_URL}/evaluation/evaluations/${userId}/evaluate/`, {
+    method: 'POST',
+    headers: getAuthHeader(),
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error('Failed to evaluate user');
+  return res.json();
+},
+},
 };
