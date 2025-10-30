@@ -184,7 +184,7 @@ export const api = {
   },
 
   async deleteArtwork(id: number): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/artworks/${id}/`, {
+    const response = await fetch(`${API_BASE_URL}/artworks/${id}/delete/`, {
       method: 'DELETE',
       headers: getAuthHeader(),
       credentials: 'include',
@@ -316,6 +316,30 @@ export const api = {
     
     return response.json();
   },
+// ============ AI Description Generation ============
+
+async generateDescription(data: {
+  title: string;
+  category?: string;
+  style?: string;
+}): Promise<{ descriptions: string[]; title: string }> {
+  const response = await fetch(`${API_BASE_URL}/artworks/generate-description/`, {
+    method: 'POST',
+    headers: {
+      ...getAuthHeader(),
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to generate description');
+  }
+  
+  return response.json();
+},
 
   // ============ Reports ============
   
