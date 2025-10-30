@@ -36,10 +36,11 @@ urlpatterns = [
     # Admin
     path('admin/users/', views.get_all_users, name='get_all_users'),
     path('admin/stats/', views.get_admin_stats, name='get_admin_stats'),
-    
+
     # Categories
     path('categories/', views.get_categories, name='get_categories'),
 
     # Evaluation (IA)
     path('evaluation/', include('evaluation.urls')),
+
 ]

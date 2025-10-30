@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Artwork, Category, Comment, UserProfile, Like, Report
+from .models import Artwork, Category, Comment, UserProfile, Like, Report, Discussion, Reply
 from django.http import JsonResponse
 
 
@@ -267,3 +267,9 @@ class AdminUserSerializer(serializers.ModelSerializer):
     def get_artworks_count(self, obj):
         """Get the count of artworks for this user"""
         return obj.artworks.count()
+    
+class UserSerializer(serializers.ModelSerializer):
+    """Serializer pour les utilisateurs"""
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email']
