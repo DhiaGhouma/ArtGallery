@@ -10,6 +10,8 @@ urlpatterns = [
     path('artworks/<int:pk>/like/', views.toggle_like, name='toggle_like'),
     path('artworks/<int:pk>/comment/', views.add_comment, name='add_comment'),
     path('artworks/<int:pk>/suggest-comments/', views.suggest_comments, name='suggest_comments'),
+    #techniques
+    path('generate-technique/', views.generate_art_technique, name='generate_art_technique'),
     
     # Comments
     path('comments/<int:pk>/', views.delete_comment, name='delete_comment'),
@@ -42,4 +44,7 @@ urlpatterns = [
 
     # Evaluation (IA)
     path('evaluation/', include('evaluation.urls')),
+    
+    
+    
 ]

@@ -12,8 +12,67 @@ from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.utils import timezone
 from datetime import timedelta
+import requests
+from dotenv import load_dotenv
 import json
+import os
 from .ai_service import generate_comment_suggestions
+load_dotenv()
+
+GROQ_API_KEY = os.getenv('GROQ_API_KEY')
+GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
+
+def call_groq_ai(user_query: str) -> str:
+    """
+    Call Groq AI chat model and return the response text.
+    """
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "model": "meta-llama/llama-4-scout-17b-16e-instruct",  # working model
+        "messages": [
+            {"role": "system", "content": "You are an expert art instructor."},
+            {"role": "user", "content": user_query},
+        ],
+        "temperature": 0.7,
+        "top_p": 0.9,
+    }
+
+    response = requests.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        headers=headers,
+        json=payload,
+    )
+
+    if response.status_code != 200:
+        return f"Error from Groq API: {response.text}"
+
+    result = response.json()
+    return result['choices'][0]['message']['content']
+
+
+    response = requests.post(GROQ_API_URL, headers=headers, data=json.dumps(payload))
+    if response.status_code == 200:
+        data = response.json()
+        return data["choices"][0]["message"]["content"]
+    else:
+        return f"Error: {response.status_code} - {response.text}"
+
+
+
+    response = requests.post(GROQ_API_URL, headers=headers, data=json.dumps(payload))
+    if response.status_code == 200:
+        data = response.json()
+        return data["choices"][0]["message"]["content"]
+    else:
+        return f"Error: {response.status_code} - {response.text}"
+
+
+
+
 
 
 # ============ Helper Functions ============
@@ -1000,3 +1059,17 @@ def update_artwork(request, pk):
         import traceback
         print(traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
+    
+@csrf_exempt
+@require_http_methods(["POST"])
+def generate_art_technique(request):
+    try:
+        body = json.loads(request.body)
+        prompt = body.get("prompt", "")
+        if not prompt:
+            return JsonResponse({"error": "Prompt is required"}, status=400)
+
+        answer = call_groq_ai(prompt)
+        return JsonResponse({"generated_text": answer})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

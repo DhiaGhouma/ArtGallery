@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MessageSquare, Users, BookOpen, Sparkles, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,7 @@ interface Discussion {
 const Community = () => {
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [chatMessage, setChatMessage] = useState('');
   const [aiResponse, setAiResponse] = useState('');
 
@@ -83,6 +85,21 @@ const Community = () => {
     { name: 'Exhibitions', icon: Users, count: 45 },
   ];
 
+  const handleCategoryClick = (categoryName: string) => {
+  if (categoryName === 'All Discussions') {
+    navigate('/community-hub');
+  } else if (categoryName === 'Techniques') {
+    // Redirect to your internal route
+    navigate('/technique-encyclopedia');
+  } else {
+    toast({
+      title: 'Category Selected',
+      description: `Filtering by ${categoryName}`,
+    });
+  }
+};
+
+
   const handleAIChat = () => {
     if (!chatMessage.trim()) return;
 
@@ -121,6 +138,7 @@ const Community = () => {
                   return (
                     <button
                       key={index}
+                      onClick={() => handleCategoryClick(cat.name)}
                       className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-primary/10 transition-all hover-glow group"
                     >
                       <Icon className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
