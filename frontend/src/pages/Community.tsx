@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import YouTubeTutorials from '@/components/YouTubeTutorials';
+import AITutorials from '@/components/AITutorials';
 
 interface Discussion {
   id: number;
@@ -25,7 +26,7 @@ const Community = () => {
   const navigate = useNavigate();
   const [chatMessage, setChatMessage] = useState('');
   const [aiResponse, setAiResponse] = useState('');
-  const [activeTab, setActiveTab] = useState<'discussions' | 'tutorials'>('discussions');
+  const [activeTab, setActiveTab] = useState<'discussions' | 'tutorials' | 'ai-tutorials'>('discussions');
 
   const discussions: Discussion[] = [
     {
@@ -221,9 +222,22 @@ const Community = () => {
                 <Video className="w-5 h-5" />
                 Video Tutorials
               </button>
+              <button
+                onClick={() => setActiveTab('ai-tutorials')}
+                className={`
+                  flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all
+                  ${activeTab === 'ai-tutorials' 
+                    ? 'bg-primary text-primary-foreground shadow-lg' 
+                    : 'bg-accent/20 hover:bg-accent/30'
+                  }
+                `}
+              >
+                <Sparkles className="w-5 h-5" />
+                AI Tutorials
+              </button>
             </div>
 
-            {/* Tutorials Section */}
+            {/* Video Tutorials Section */}
             {activeTab === 'tutorials' && (
               <div className="animate-fade-in">
                 <div className="mb-6">
@@ -233,6 +247,13 @@ const Community = () => {
                   </p>
                 </div>
                 <YouTubeTutorials />
+              </div>
+            )}
+
+            {/* AI Tutorials Section */}
+            {activeTab === 'ai-tutorials' && (
+              <div className="animate-fade-in">
+                <AITutorials />
               </div>
             )}
 
