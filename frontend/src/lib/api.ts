@@ -434,6 +434,46 @@ async generateDescription(data: {
   return response.json();
 },
 
+  // ============ AI Tutorials ============
+  
+  async getTutorialCategories(): Promise<{ categories: any[]; count: number }> {
+    const response = await fetch(`${API_BASE_URL}/tutorials/categories/`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch tutorial categories');
+    }
+    
+    return response.json();
+  },
+
+  async generateTutorial(data: {
+    topic: string;
+    skill_level: 'beginner' | 'intermediate' | 'advanced';
+    language: 'en' | 'ar' | 'fr';
+  }): Promise<{ success: boolean; tutorial: any }> {
+    const response = await fetch(`${API_BASE_URL}/tutorials/generate/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to generate tutorial');
+    }
+    
+    return response.json();
+  },
+
   // ============ Reports ============
   
   async register(data: { 
