@@ -106,7 +106,6 @@ def get_user_data(user, request):
 
 # ============ Artworks ============
 @csrf_exempt
-
 @require_http_methods(["GET"])
 def index(request):
     """Get all artworks with optional filters"""

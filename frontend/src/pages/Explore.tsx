@@ -53,33 +53,6 @@ const Explore = () => {
     }
   };
 
-  // New API: Rijksmuseum
-  const loadRijksmuseumArtworks = async () => {
-    try {
-      setLoading(true);
-      const apiKey = 'YOUR_RIJKS_API_KEY'; // Replace with your free key
-      const res = await fetch(
-        `https://www.rijksmuseum.nl/api/en/collection?key=${apiKey}&ps=12&p=${page}&imgonly=True`
-      );
-      const data = await res.json();
-      const formatted = data.artObjects.map(a => ({
-        id: `rijks-${a.objectNumber}`,
-        title: a.title,
-        artist: a.principalOrFirstMaker,
-        date: a.longTitle?.split(',')[1] || '',
-        imageUrl: a.webImage?.url || null,
-        likes_count: Math.floor(Math.random() * 100), // fake likes
-        comments_count: Math.floor(Math.random() * 20), // fake comments
-        views: Math.floor(Math.random() * 500), // fake views
-      }));
-      return formatted.filter(a => a.imageUrl);
-    } catch (err) {
-      console.error('Rijksmuseum API error:', err);
-      return [];
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleFilterClick = (filterId, isLink, isInspiration) => {
     if (filterId === 'generate' && isLink) {
