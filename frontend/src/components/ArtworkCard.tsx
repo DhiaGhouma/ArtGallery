@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Heart, MessageCircle, Eye, Send, X, User, Clock, Tag } from 'lucide-react';
 import { Artwork, api } from '@/lib/api';
+import CommentSuggestions from './CommentSuggestions';
 
 interface ArtworkCardProps {
   artwork: Artwork;
@@ -366,6 +367,12 @@ const ArtworkCard = ({ artwork, onLike, onComment }: ArtworkCardProps) => {
                           disabled={!currentUser}
                           className="w-full bg-background border border-border rounded-xl p-4 placeholder-muted-foreground focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all min-h-[100px] resize-none disabled:opacity-50 disabled:cursor-not-allowed"
                         />
+                        {currentUser && (
+                          <CommentSuggestions
+                            artworkId={artwork.id}
+                            onSelectSuggestion={(suggestion) => setCommentText(suggestion)}
+                          />
+                        )}
                         <button
                           type="submit"
                           disabled={!commentText.trim() || sendingComment || !currentUser}
