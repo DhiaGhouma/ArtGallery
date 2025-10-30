@@ -11,7 +11,7 @@ SECRET_KEY = 'django-insecure-b7v!wnzmlm*43di6$9l5v_tg1fw!ws($w)(6xs-b77-flpp6ef
 
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'artgallery-1-2sie.onrender.com']
 
 
 # Application definition
@@ -73,17 +73,19 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8080",
     "http://127.0.0.1:8080",
+    "https://artgallery-frontend-e7f0.onrender.com",  
+    "https://artgallery-1-2sie.onrender.com",  
 ]
 
 # CRITICAL FIX: Set SameSite to 'None' explicitly for cross-origin
 # This requires Secure=True in production, but can be False in dev
-CSRF_COOKIE_SAMESITE = 'Lax'  # 'Lax' works for same-origin dev setup
+CSRF_COOKIE_SAMESITE = 'None'
 CSRF_COOKIE_HTTPONLY = False
-CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
+CSRF_COOKIE_SECURE = True  
 CSRF_COOKIE_NAME = 'csrftoken'
 
 # Session Configuration - THE KEY FIX
-SESSION_COOKIE_SAMESITE = 'Lax'  # 'Lax' allows session persistence on navigation
+SESSION_COOKIE_SAMESITE = 'None'  
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
 SESSION_COOKIE_AGE = 1209600  # 2 weeks
