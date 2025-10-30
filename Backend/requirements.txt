@@ -1,6 +1,9 @@
 Django==4.2
-Pillow==10.0.0
-django-crispy-forms==2.0
-crispy-bootstrap5==0.7
-openai>=1.0.0
-python-dotenv>=1.0.0
+djangorestframework==3.16.1
+django-cors-headers==4.9.0
+django-crispy-forms==2.4
+crispy-bootstrap5==2025.6
+gunicorn
+pytz==2025.2
+sqlparse==0.5.3
+python-dotenv==1.1.1
