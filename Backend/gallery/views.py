@@ -840,7 +840,7 @@ def logout_view(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
-
+@csrf_exempt
 @require_http_methods(["GET"])
 def check_auth(request):
     """Check if user is authenticated"""
