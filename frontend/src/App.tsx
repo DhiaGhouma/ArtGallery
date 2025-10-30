@@ -25,6 +25,7 @@ import AdminDashboard from "./pages/Admin/AdminDashboard";
 import Evaluation from "./pages/Evaluation";
 import TechniqueEncyclopedia from "./pages/TechniqueEncyclopedia";
 import MyListings from "./pages/MyListings";
+import CommunityHub from "./pages/CommunityHub";
 const queryClient = new QueryClient();
 
 function AppRoutes() {
@@ -66,6 +67,8 @@ function AppRoutes() {
         <Route path="/my-listings" element={<MyListings />} />
 
         
+        <Route path="/community-hub" element={<CommunityHub />} />
+
       </Routes>
     </>
   );

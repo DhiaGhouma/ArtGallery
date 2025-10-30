@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Artwork, Category, Comment, UserProfile, Like, Report
+from .models import Artwork, Category, Comment, UserProfile, Like, Report, Discussion, Reply
 from django.http import JsonResponse
 
 

@@ -134,6 +134,7 @@ export default function Reports() {
                     <TableHead>Artwork</TableHead>
                     <TableHead>Comment</TableHead>
                     <TableHead>Reason</TableHead>
+                    <TableHead>Description</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Action</TableHead>
@@ -167,6 +168,9 @@ export default function Reports() {
                       </TableCell>
                       <TableCell>
                         <span className="text-sm">{report.reason}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm">{report.description}</span>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {new Date(report.created_at).toLocaleDateString()}

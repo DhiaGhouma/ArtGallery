@@ -111,3 +111,73 @@ class Report(models.Model):
     def __str__(self):
         target = self.artwork.title if self.artwork else f'Comment by {self.comment.user.username}'
         return f'Report by {self.reporter.username} on {target}'
+    
+class Discussion(models.Model):
+    """Modèle pour les discussions"""
+    title = models.CharField(max_length=200)
+    content = models.TextField()
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='discussions')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    likes = models.IntegerField(default=0)
+    replies = models.IntegerField(default=0)
+    category = models.CharField(max_length=50, default='General')
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Discussion'
+        verbose_name_plural = 'Discussions'
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def timestamp(self):
+        """Retourner un timestamp lisible"""
+        from django.utils import timezone
+        diff = timezone.now() - self.created_at
+        
+        if diff.days > 365:
+            return f"{diff.days // 365} year{'s' if diff.days // 365 > 1 else ''} ago"
+        elif diff.days > 30:
+            return f"{diff.days // 30} month{'s' if diff.days // 30 > 1 else ''} ago"
+        elif diff.days > 0:
+            return f"{diff.days} day{'s' if diff.days > 1 else ''} ago"
+        elif diff.seconds > 3600:
+            return f"{diff.seconds // 3600} hour{'s' if diff.seconds // 3600 > 1 else ''} ago"
+        elif diff.seconds > 60:
+            return f"{diff.seconds // 60} minute{'s' if diff.seconds // 60 > 1 else ''} ago"
+        else:
+            return "Just now"
+
+
+class Reply(models.Model):
+    """Modèle pour les réponses aux discussions"""
+    discussion = models.ForeignKey(Discussion, on_delete=models.CASCADE, related_name='discussion_replies')
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='replies')
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    likes = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ['created_at']
+        verbose_name = 'Reply'
+        verbose_name_plural = 'Replies'
+
+    def __str__(self):
+        return f"Reply by {self.author.username} on {self.discussion.title}"
+
+    @property
+    def timestamp(self):
+        """Retourner un timestamp lisible"""
+        from django.utils import timezone
+        diff = timezone.now() - self.created_at
+        
+        if diff.days > 0:
+            return f"{diff.days} day{'s' if diff.days > 1 else ''} ago"
+        elif diff.seconds > 3600:
+            return f"{diff.seconds // 3600} hour{'s' if diff.seconds // 3600 > 1 else ''} ago"
+        elif diff.seconds > 60:
+            return f"{diff.seconds // 60} minute{'s' if diff.seconds // 60 > 1 else ''} ago"
+        else:
+            return "Just now"
