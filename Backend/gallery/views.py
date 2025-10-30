@@ -444,6 +444,56 @@ def suggest_comments(request, pk):
         }, status=500)
 
 
+ #============ AI description Suggestions ============
+@csrf_exempt
+@require_http_methods(["POST"])
+def generate_description(request):
+    """
+    Generate AI-powered description for an artwork
+    POST /artworks/generate-description/
+    Body: { "title": "...", "category": "...", "style": "..." }
+    """
+    try:
+        # Import the service
+        from .ai_description_service import generate_multiple_descriptions
+        
+        # Check authentication
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        # Parse request data
+        data = json.loads(request.body)
+        title = data.get('title')
+        category = data.get('category')
+        style = data.get('style')
+        
+        if not title:
+            return JsonResponse({'error': 'Title is required'}, status=400)
+        
+        # Generate descriptions using AI
+        descriptions = generate_multiple_descriptions(
+            title=title,
+            category=category,
+            style=style,
+            count=3
+        )
+        
+        return JsonResponse({
+            'descriptions': descriptions,
+            'title': title
+        })
+        
+    except Exception as e:
+        # Log error in production
+        print(f"AI description generation error: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return JsonResponse({
+            'error': 'Failed to generate descriptions. Please try again.',
+            'details': str(e)
+        }, status=500)
+
+
 # ============ Authentication ============
 
 @csrf_exempt
