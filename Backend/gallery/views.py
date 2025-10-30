@@ -637,6 +637,73 @@ def suggest_comments(request, pk):
         }, status=500)
 
 
+@csrf_exempt
+@require_http_methods(["GET"])
+def get_tutorial_categories(request):
+    """
+    Get available tutorial categories
+    GET /tutorials/categories/
+    """
+    try:
+        from .ai_service import get_tutorial_categories as get_categories
+        categories = get_categories()
+        
+        return JsonResponse({
+            'categories': categories,
+            'count': len(categories)
+        })
+    except Exception as e:
+        print(f"Error fetching categories: {str(e)}")
+        return JsonResponse({
+            'error': 'Failed to fetch categories',
+            'details': str(e)
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def generate_ai_tutorial(request):
+    """
+    Generate AI-powered tutorial
+    POST /tutorials/generate/
+    Body: { "topic": "portrait drawing", "skill_level": "beginner", "language": "en" }
+    """
+    try:
+        # Parse request data
+        data = json.loads(request.body)
+        topic = data.get('topic')
+        skill_level = data.get('skill_level', 'beginner')
+        language = data.get('language', 'en')
+        
+        # Validate inputs
+        if not topic:
+            return JsonResponse({'error': 'Topic is required'}, status=400)
+        
+        if skill_level not in ['beginner', 'intermediate', 'advanced']:
+            return JsonResponse({'error': 'Invalid skill level'}, status=400)
+        
+        if language not in ['en', 'ar', 'fr']:
+            return JsonResponse({'error': 'Invalid language. Must be en, ar, or fr'}, status=400)
+        
+        # Generate tutorial using AI
+        from .ai_service import generate_tutorial
+        tutorial = generate_tutorial(topic=topic, skill_level=skill_level, language=language)
+        
+        return JsonResponse({
+            'success': True,
+            'tutorial': tutorial
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        print(f"Tutorial generation error: {str(e)}")
+        return JsonResponse({
+            'error': 'Failed to generate tutorial',
+            'details': str(e)
+        }, status=500)
+
+
  #============ AI description Suggestions ============
 @csrf_exempt
 @require_http_methods(["POST"])

@@ -45,6 +45,10 @@ urlpatterns = [
     # Categories
     path('categories/', views.get_categories, name='get_categories'),
 
+    # Tutorials
+    path('tutorials/categories/', views.get_tutorial_categories, name='get_tutorial_categories'),
+    path('tutorials/generate/', views.generate_ai_tutorial, name='generate_ai_tutorial'),
+
     # Evaluation (IA)
     path('evaluation/', include('evaluation.urls')),
     
