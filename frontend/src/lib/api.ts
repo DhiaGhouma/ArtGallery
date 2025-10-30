@@ -36,6 +36,7 @@ export interface Comment {
   created_at: string;
 }
 
+// Types
 export interface Report {
   id: number;
   reporter: {

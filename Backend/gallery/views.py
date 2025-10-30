@@ -17,6 +17,9 @@ from dotenv import load_dotenv
 import json
 import os
 from .ai_service import generate_comment_suggestions
+from .serializers import ReportSerializer
+from rest_framework.response import Response
+
 
 load_dotenv()
 
@@ -578,8 +581,9 @@ def add_comment(request, pk):
 @require_http_methods(["DELETE"])
 def delete_comment(request, pk):
     comment = get_object_or_404(Comment, pk=pk)
-    comment.soft_delete(by_user=request.user if request.user.is_authenticated else None)
-    return JsonResponse({'message': 'comment deactivated', 'id': comment.id, 'is_active': comment.is_active})
+    comment.is_deleted = True
+    comment.save(update_fields=['is_deleted'])
+    return Response(status=204)
 
 
 # ============ AI Comment Suggestions ============
@@ -987,67 +991,77 @@ def create_report(request):
 @require_http_methods(["GET"])
 @staff_member_required
 def get_reports(request):
-    """Get all reports (admin only)"""
-    try:
-        reports = Report.objects.all().order_by('-created_at')
-        
-        data = []
-        for report in reports:
-            report_data = {
-                'id': report.id,
-                'reporter': {
-                    'id': report.reporter.id,
-                    'username': report.reporter.username,
-                },
-                'reason': report.reason,
-                'description': report.description,
-                'resolved': report.resolved,
-                'created_at': report.created_at.isoformat(),
+    reports = Report.objects.select_related(
+        'reporter',
+        'artwork','artwork__artist',
+        'comment','comment__user',
+        'comment__artwork','comment__artwork__artist',
+    ).order_by('-created_at')
+
+    def img_url(obj):
+        if not obj: return None
+        img = getattr(obj, 'image', None)
+        return getattr(img, 'url', img) if img else None
+
+    data = []
+    for r in reports:
+        art = r.artwork or (r.comment.artwork if r.comment else None)
+        item = {
+            'id': r.id,
+            'reporter': {'id': r.reporter.id, 'username': r.reporter.username},
+            'reason': r.reason,
+            'description': r.description,
+            'resolved': r.resolved,
+            'created_at': r.created_at.isoformat(),
+            'artwork': None,
+            'comment': None,
+        }
+        if art:
+            item['artwork'] = {
+                'id': art.id,
+                'title': getattr(art, 'title', None),
+                'image': request.build_absolute_uri(img_url(art)) if img_url(art) else None,
+                'artist': (
+                  {'id': getattr(getattr(art, 'artist', None),'id',None),
+                   'username': getattr(getattr(art, 'artist', None),'username',None)}
+                ) if getattr(art,'artist',None) else None
             }
-            
-            # Add artwork info if exists
-            if report.artwork:
-                report_data['artwork'] = {
-                    'id': report.artwork.id,
-                    'title': report.artwork.title,
-                    'image': request.build_absolute_uri(report.artwork.image.url) if report.artwork.image else None,
-                }
-            
-            # Add comment info if exists
-            if report.comment:
-                report_data['comment'] = {
-                    'id': report.comment.id,
-                    'text': report.comment.content,
-                    'user': {
-                        'id': report.comment.user.id,
-                        'username': report.comment.user.username,
-                    }
-                }
-            
-            data.append(report_data)
-        
-        return JsonResponse(data, safe=False)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        if r.comment:
+            c = r.comment
+            item['comment'] = {
+                'id': c.id,
+                'text': getattr(c, 'content', None) or getattr(c, 'text', None),
+                'user': {'id': c.user.id, 'username': c.user.username},
+                'artwork': (
+                    {'id': getattr(c.artwork,'id',None),
+                     'title': getattr(c.artwork,'title',None),
+                     'image': request.build_absolute_uri(img_url(c.artwork)) if img_url(getattr(c,'artwork',None)) else None}
+                ) if getattr(c,'artwork',None) else None
+            }
+        data.append(item)
+    return JsonResponse(data, safe=False)
 
 
 @csrf_exempt
 @require_http_methods(["POST"])
 #@staff_member_required
 def resolve_report(request, report_id):
-    """Resolve a report (admin only)"""
-    try:
-        report = get_object_or_404(Report, id=report_id)
+    report = get_object_or_404(
+        Report.objects.select_related(
+            'reporter',
+            'artwork', 'artwork__artist',
+            'comment', 'comment__artwork', 'comment__artwork__artist'
+        ),
+        id=report_id
+    )
+    if not report.resolved:
         report.resolved = True
-        report.save()
-        
-        return JsonResponse({
-            'message': 'Report resolved successfully',
-            'id': report.id,
-            'resolved': report.resolved
-        })
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        if hasattr(report, 'resolved_at'):
+            report.resolved_at = timezone.now()
+        report.save(update_fields=['resolved'] + (['resolved_at'] if hasattr(report, 'resolved_at') else []))
+
+    data = ReportSerializer(report).data
+    return JsonResponse(data, status=200, safe=False)
     
     
 @csrf_exempt

@@ -51,7 +51,7 @@ urlpatterns = [
 
     # Evaluation (IA)
     path('evaluation/', include('evaluation.urls')),
-    
+
     
     
 
