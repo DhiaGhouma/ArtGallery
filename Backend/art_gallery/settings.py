@@ -7,9 +7,9 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-b7v!wnzmlm*43di6$9l5v_tg1fw!ws($w)(6xs-b77-flpp6ef'
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-b7v!wnzmlm*43di6$9l5v_tg1fw!ws($w)(6xs-b77-flpp6ef')
 
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'artgallery-1-2sie.onrender.com']
 
@@ -42,17 +42,16 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# CORS Configuration - CRITICAL for cross-origin session auth
+# CORS Configuration
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8081",
     "http://localhost:5173",
     "http://localhost:8080",
     "http://localhost:3000",
-    'https://artgallery-frontend-e7f0.onrender.com',
-
+    "https://artgallery-frontend-e7f0.onrender.com",
 ]
 
-CORS_ALLOW_CREDENTIALS = True  # MUST be True for cookies
+CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOW_HEADERS = [
     'accept',
@@ -64,7 +63,10 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
+    'cookie',
 ]
+
+CORS_EXPOSE_HEADERS = ['set-cookie']
 
 # CSRF Configuration
 CSRF_TRUSTED_ORIGINS = [
@@ -73,31 +75,26 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8080",
     "http://127.0.0.1:8080",
-    "https://artgallery-frontend-e7f0.onrender.com",  
-    "https://artgallery-1-2sie.onrender.com",  
+    "https://artgallery-frontend-e7f0.onrender.com",
+    "https://artgallery-1-2sie.onrender.com",
 ]
 
-# CRITICAL FIX: Set SameSite to 'None' explicitly for cross-origin
-# This requires Secure=True in production, but can be False in dev
+# Cookie settings for production (cross-origin)
 CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
 CSRF_COOKIE_HTTPONLY = False
-CSRF_COOKIE_SECURE = True  
 CSRF_COOKIE_NAME = 'csrftoken'
 
-# Session Configuration - THE KEY FIX
-SESSION_COOKIE_SAMESITE = 'None'  
+# Session Configuration for cross-origin
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
 SESSION_COOKIE_AGE = 1209600  # 2 weeks
 SESSION_COOKIE_NAME = 'sessionid'
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_SAVE_EVERY_REQUEST = True
-# Important: Don't set SESSION_COOKIE_DOMAIN for localhost
 SESSION_COOKIE_DOMAIN = None
-
-# Make sure sessions are saved on every request
-SESSION_SAVE_EVERY_REQUEST = True
 
 ROOT_URLCONF = 'art_gallery.urls'
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
@@ -153,7 +150,7 @@ USE_I18N = True
 USE_TZ = True
 
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
@@ -167,5 +164,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
     ],
 }
