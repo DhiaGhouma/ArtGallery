@@ -77,7 +77,7 @@ export const tutorialCategories: TutorialCategory[] = [
  */
 export const searchYouTubeTutorials = async (
   query: string,
-  maxResults: number = 12
+  maxResults: number = 36
 ): Promise<YouTubeVideo[]> => {
   try {
     if (!YOUTUBE_API_KEY || YOUTUBE_API_KEY === 'YOUR_YOUTUBE_API_KEY_HERE') {
