@@ -19,28 +19,13 @@ export default function Reports() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // if (!isAuthenticated) {
-    //   navigate('/login');
-    //   return;
-    // }
-
-    // if (!isAuthenticated) {
-    //   toast({
-    //     title: 'Access Denied',
-    //     description: 'You do not have permission to view this page.',
-    //     variant: 'destructive',
-    //   });
-    //   navigate('/');
-    //   return;
-    // }
-
     loadReports();
   }, [isAuthenticated, user, navigate]);
 
   const loadReports = async () => {
     try {
       const data = await api.getReports();
-      setReports(data);
+      setReports(Array.isArray(data) ? data : []);
     } catch (error) {
       toast({
         title: 'Error',
@@ -64,6 +49,10 @@ export default function Reports() {
   if (!isAuthenticated) {
     return null;
   }
+
+  // helper image fallback
+  const safeImg = (src?: string | null) =>
+    src && src.length > 0 ? src : 'https://via.placeholder.com/80x80?text=No+Img';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
@@ -141,63 +130,93 @@ export default function Reports() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {reports.map((report) => (
-                    <TableRow 
-                      key={report.id} 
-                      className="border-b border-primary/10 hover:bg-primary/5 transition-colors"
-                    >
-                      <TableCell className="font-medium">{report.reporter.username}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <img 
-                            src={report.artwork.image} 
-                            alt={report.artwork.title}
-                            className="w-10 h-10 object-cover rounded"
-                          />
-                          <span className="truncate max-w-[150px]">{report.artwork.title}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {report.comment ? (
-                          <span className="text-sm italic truncate max-w-[200px] block">
-                            "{report.comment.text}"
+                  {reports.map((report) => {
+                    // ✅ artwork peut venir directement OU via le commentaire
+                    const art = report.artwork ?? report.comment?.artwork ?? null;
+
+                    return (
+                      <TableRow
+                        key={report.id}
+                        className="border-b border-primary/10 hover:bg-primary/5 transition-colors"
+                      >
+                        <TableCell className="font-medium">
+                          {report.reporter?.username ?? '—'}
+                        </TableCell>
+
+                        {/* Artwork cell – safe optional chaining */}
+                        <TableCell>
+                          {art ? (
+                            <div className="flex items-center gap-2">
+                              <img
+                                src={safeImg(art.image)}
+                                alt={art.title ?? `Artwork #${art.id}`}
+                                className="w-10 h-10 object-cover rounded"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src =
+                                    'https://via.placeholder.com/80x80?text=No+Img';
+                                }}
+                              />
+                              <span className="truncate max-w-[180px]">
+                                {art.title ?? `#${art.id}`}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+
+                        {/* Comment cell */}
+                        <TableCell>
+                          {report.comment ? (
+                            <span className="text-sm italic truncate max-w-[260px] block">
+                              “{report.comment.text ?? '—'}”
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+
+                        <TableCell>
+                          <span className="text-sm">{report.reason}</span>
+                        </TableCell>
+
+                        <TableCell>
+                          <span className="text-sm">
+                            {report.description ?? <span className="text-muted-foreground">—</span>}
                           </span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm">{report.reason}</span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm">{report.description}</span>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {new Date(report.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        {report.resolved ? (
-                          <Badge className="bg-primary/20 text-primary border-primary/40">
-                            Resolved
-                          </Badge>
-                        ) : (
-                          <Badge variant="destructive" className="bg-destructive/20 text-destructive border-destructive/40">
-                            Pending
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          onClick={() => handleTakeAction(report)}
-                          disabled={report.resolved}
-                          className="bg-primary hover:bg-primary/90"
-                        >
-                          Take Action
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+
+                        <TableCell className="text-sm text-muted-foreground">
+                          {report.created_at
+                            ? new Date(report.created_at).toLocaleString()
+                            : '—'}
+                        </TableCell>
+
+                        <TableCell>
+                          {report.resolved ? (
+                            <Badge className="bg-primary/20 text-primary border-primary/40">
+                              Resolved
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive" className="bg-destructive/20 text-destructive border-destructive/40">
+                              Pending
+                            </Badge>
+                          )}
+                        </TableCell>
+
+                        <TableCell className="text-right">
+                          <Button
+                            size="sm"
+                            onClick={() => handleTakeAction(report)}
+                            disabled={report.resolved}
+                            className="bg-primary hover:bg-primary/90"
+                          >
+                            Take Action
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

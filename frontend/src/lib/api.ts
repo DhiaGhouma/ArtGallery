@@ -44,19 +44,25 @@ export interface Report {
   };
   artwork?: {
     id: number;
-    title: string;
-    image: string;
-    artist: {                
+    title?: string;
+    image?: string;
+    artist?: {                
       id: number;
       username: string;
     };
-  };
+  } | null;
   comment?: {
     id: number;
-    text: string;
-  };
+    text?: string | null;
+    // ✅ parfois le backend renvoie l’œuvre liée au commentaire :
+    artwork?: {
+      id: number;
+      title?: string;
+      image?: string;
+    } | null;
+  } | null;
   reason: string;
-  description?: string;
+  description?: string | null;
   resolved?: boolean;
   created_at: string;
 }
@@ -625,17 +631,26 @@ async generateDescription(data: {
 
   
   async getReports(): Promise<Report[]> {
-    const response = await fetch(`${API_BASE_URL}/reports/all/`, {
-      credentials: 'include',
-      headers: getAuthHeader(),
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch reports');
-    }
-    
-    return response.json();
-  },
+  const response = await fetch(`${API_BASE_URL}/reports/all/`, {
+    credentials: 'include',
+    headers: getAuthHeader(),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch reports');
+  }
+  const data = await response.json();
+
+  // ✅ Normalisation: si report.artwork absent, essaie via report.comment.artwork
+  const normalized: Report[] = (Array.isArray(data) ? data : []).map((r: any) => {
+    const fallbackArtwork = r.artwork ?? r?.comment?.artwork ?? null;
+    return {
+      ...r,
+      artwork: fallbackArtwork,
+    };
+  });
+
+  return normalized;
+},
 
   async createReport(data: {
   artwork_id?: number;
@@ -701,6 +716,7 @@ async generateDescription(data: {
       throw new Error(error.error || 'Failed to delete report');
     }
   },
+
 
   // ============ Admin - Users ============
   

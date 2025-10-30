@@ -40,11 +40,12 @@ export const ReportArtworkDialog = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!artworkId) {
+
+    // ✅ Autoriser: artworkId OU commentId (au moins un)
+    if (!artworkId && !commentId) {
       toast({
         title: 'Error',
-        description: 'No artwork selected',
+        description: 'Nothing to report: missing artwork or comment.',
         variant: 'destructive',
       });
       return;
@@ -62,30 +63,39 @@ export const ReportArtworkDialog = ({
     setIsSubmitting(true);
 
     try {
-      console.log({ artworkId, commentId, reason, description });
+      // Log visible même si c’est un report de commentaire uniquement
+      console.log('Submitting report payload:', {
+        artwork_id: artworkId ?? undefined,
+        comment_id: commentId ?? undefined,
+        reason,
+        description: description.trim() || undefined,
+      });
+
       await api.createReport({
-        artwork_id: artworkId,
-        comment_id: commentId,
-        reason: reason,
-        description: description.trim() || undefined, // Envoyer seulement si non vide
+        artwork_id: artworkId ?? undefined,
+        comment_id: commentId ?? undefined,
+        reason,
+        description: description.trim() || undefined,
       });
 
       toast({
-        title: 'Report submitted',
+        title: commentId ? 'Comment reported' : 'Artwork reported',
         description: 'Thank you for helping keep our community safe.',
       });
 
-      // Reset form
+      // Reset + close
       setReason('');
       setDescription('');
       onOpenChange(false);
       onReportSubmitted?.();
     } catch (error) {
+      const message = (error as any)?.message ?? 'Failed to submit report. Please try again.';
       toast({
         title: 'Error',
-        description: error.message || 'Failed to submit report. Please try again.',
+        description: message,
         variant: 'destructive',
       });
+      console.error('Report submission failed:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -105,7 +115,7 @@ export const ReportArtworkDialog = ({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 mt-4">
-          {/* Reason Selection */}
+          {/* Reason */}
           <div className="space-y-2">
             <Label htmlFor="reason">Reason for report *</Label>
             <Select value={reason} onValueChange={setReason}>
@@ -122,7 +132,7 @@ export const ReportArtworkDialog = ({
             </Select>
           </div>
 
-          {/* Additional Details */}
+          {/* Details */}
           <div className="space-y-2">
             <Label htmlFor="description">
               Additional details <span className="text-muted-foreground text-xs">(optional)</span>
@@ -140,7 +150,7 @@ export const ReportArtworkDialog = ({
             </p>
           </div>
 
-          {/* Action Buttons */}
+          {/* Actions */}
           <div className="flex gap-3 justify-end">
             <Button
               type="button"
