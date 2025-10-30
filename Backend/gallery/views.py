@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 import json
 import os
 from .ai_service import generate_comment_suggestions
+
 load_dotenv()
 
 GROQ_API_KEY = os.getenv('GROQ_API_KEY')
@@ -576,23 +577,9 @@ def add_comment(request, pk):
 @csrf_exempt
 @require_http_methods(["DELETE"])
 def delete_comment(request, pk):
-    """Delete comment"""
-    try:
-        if not request.user.is_authenticated:
-            return JsonResponse({'error': 'Authentication required'}, status=401)
-        
-        comment = Comment.objects.get(pk=pk)
-        
-        # Check if user is owner or staff
-        if comment.user != request.user and not request.user.is_staff:
-            return JsonResponse({'error': 'Permission denied'}, status=403)
-        
-        comment.delete()
-        return JsonResponse({'message': 'Comment deleted successfully'})
-    except Comment.DoesNotExist:
-        return JsonResponse({'error': 'Comment not found'}, status=404)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+    comment = get_object_or_404(Comment, pk=pk)
+    comment.soft_delete(by_user=request.user if request.user.is_authenticated else None)
+    return JsonResponse({'message': 'comment deactivated', 'id': comment.id, 'is_active': comment.is_active})
 
 
 # ============ AI Comment Suggestions ============
