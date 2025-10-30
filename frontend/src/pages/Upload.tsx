@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload as UploadIcon, Image as ImageIcon, Loader2, DollarSign } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
+import { Upload as UploadIcon, Image as ImageIcon, Loader2, DollarSign, Sparkles } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -23,9 +24,30 @@ const Upload = () => {
   const [preview, setPreview] = useState<string>('');
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [generatedDescriptions, setGeneratedDescriptions] = useState<string[]>([]);
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // AI Description Generation Mutation
+  const generateDescriptionMutation = useMutation({
+    mutationFn: (data: { title: string; category?: string; style?: string }) => 
+      api.generateDescription(data),
+    onSuccess: (data) => {
+      setGeneratedDescriptions(data.descriptions);
+      toast({
+        title: 'AI Generated!',
+        description: `Generated ${data.descriptions.length} description options`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Generation Failed',
+        description: error.message || 'Failed to generate descriptions',
+        variant: 'destructive',
+      });
+    },
+  });
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -37,6 +59,32 @@ const Upload = () => {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleGenerateDescription = () => {
+    if (!title) {
+      toast({
+        title: 'Title Required',
+        description: 'Please enter a title first',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    generateDescriptionMutation.mutate({
+      title,
+      category: category || undefined,
+      style: style || undefined,
+    });
+  };
+
+  const handleSelectDescription = (desc: string) => {
+    setDescription(desc);
+    setGeneratedDescriptions([]);
+    toast({
+      title: 'Description Selected',
+      description: 'You can edit it if needed',
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -189,21 +237,6 @@ const Upload = () => {
               />
             </div>
 
-            {/* Description */}
-            <div>
-              <Label htmlFor="description" className="text-lg font-semibold mb-2 block">
-                Description
-              </Label>
-              <Textarea
-                id="description"
-                placeholder="Describe your artwork..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                className="bg-background/50"
-              />
-            </div>
-
             {/* Category & Style */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -243,6 +276,65 @@ const Upload = () => {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Description with AI Generator */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <Label htmlFor="description" className="text-lg font-semibold">
+                  Description
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateDescription}
+                  disabled={!title || generateDescriptionMutation.isPending}
+                  className="gap-2"
+                >
+                  {generateDescriptionMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Generate with AI
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* AI Generated Descriptions */}
+              {generatedDescriptions.length > 0 && (
+                <div className="mb-4 space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    ✨ AI Generated Descriptions (click to use):
+                  </p>
+                  {generatedDescriptions.map((desc, index) => (
+                    <div
+                      key={index}
+                      onClick={() => handleSelectDescription(desc)}
+                      className="p-3 rounded-lg bg-primary/10 hover:bg-primary/20 cursor-pointer transition-all border border-primary/20 hover:border-primary/40"
+                    >
+                      <p className="text-sm">{desc}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Textarea
+                id="description"
+                placeholder="Describe your artwork... or generate with AI"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
+                className="bg-background/50"
+              />
+              <p className="text-sm text-muted-foreground mt-1">
+                💡 Tip: Fill in title, category, and style first, then click "Generate with AI"
+              </p>
             </div>
 
             {/* Price & In Stock */}
