@@ -122,7 +122,10 @@ const Explore = () => {
           combined.sort((a, b) => (b.views || 0) - (a.views || 0));
           break;
         case 'newest':
-          combined.sort((a, b) => new Date(b.created_at || Date.now()) - new Date(a.created_at || Date.now()));
+          combined.sort((a, b) => 
+            (new Date(b.created_at || Date.now())).getTime() - 
+            (new Date(a.created_at || Date.now())).getTime()
+          );
           break;
         case 'abstract':
           combined = combined.filter(a => a.title?.toLowerCase().includes('abstract'));
