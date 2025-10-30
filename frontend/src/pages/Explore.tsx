@@ -53,6 +53,34 @@ const Explore = () => {
     }
   };
 
+  // New API: Rijksmuseum
+  const loadRijksmuseumArtworks = async () => {
+    try {
+      setLoading(true);
+      const apiKey = 'YOUR_RIJKS_API_KEY'; // Replace with your free key
+      const res = await fetch(
+        `https://www.rijksmuseum.nl/api/en/collection?key=${apiKey}&ps=12&p=${page}&imgonly=True`
+      );
+      const data = await res.json();
+      const formatted = data.artObjects.map(a => ({
+        id: `rijks-${a.objectNumber}`,
+        title: a.title,
+        artist: a.principalOrFirstMaker,
+        date: a.longTitle?.split(',')[1] || '',
+        imageUrl: a.webImage?.url || null,
+        likes_count: Math.floor(Math.random() * 100), // fake likes
+        comments_count: Math.floor(Math.random() * 20), // fake comments
+        views: Math.floor(Math.random() * 500), // fake views
+      }));
+      return formatted.filter(a => a.imageUrl);
+    } catch (err) {
+      console.error('Rijksmuseum API error:', err);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleFilterClick = (filterId, isLink, isInspiration) => {
     if (filterId === 'generate' && isLink) {
       window.location.href = 'http://localhost:8081/ai-image-modifier';
@@ -73,55 +101,45 @@ const Explore = () => {
     setLoading(true);
 
     try {
-      let sortBy = '-created_at';
-      let category = '';
+      // Original backend artworks
+      const response = await api.getArtworks({ category: '', search: '' });
+      const backendArtworks = Array.isArray(response) ? response : [];
 
+      // New API artworks
+      const rijksArtworks = await loadRijksmuseumArtworks();
+
+      let combined = [...backendArtworks, ...rijksArtworks];
+
+      // Apply sorting based on filter
       switch (filter) {
         case 'trending':
-          sortBy = '-likes_count';
+          combined.sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0));
           break;
         case 'commented':
-          sortBy = '-comments_count';
+          combined.sort((a, b) => (b.comments_count || 0) - (a.comments_count || 0));
           break;
         case 'viewed':
-          sortBy = '-views';
+          combined.sort((a, b) => (b.views || 0) - (a.views || 0));
           break;
         case 'newest':
-          sortBy = '-created_at';
+          combined.sort((a, b) => new Date(b.created_at || Date.now()) - new Date(a.created_at || Date.now()));
           break;
         case 'abstract':
-          sortBy = '-created_at';
-          category = 'abstract';
+          combined = combined.filter(a => a.title?.toLowerCase().includes('abstract'));
           break;
-        case 'all':
-          sortBy = '-created_at';
-          break;
-        default:
-          sortBy = '-created_at';
       }
-      
-      const response = await api.getArtworks({ 
-        category: category,
-        search: '' 
-      });
-      
-      const data = Array.isArray(response) ? response : [];
-      
-      if (reset) {
-        setArtworks(data);
-      } else {
-        setArtworks(prev => [...prev, ...data]);
-      }
-      
-      setHasMore(data.length > 0 && data.length >= 12);
-      
+
+      if (reset) setArtworks(combined);
+      else setArtworks(prev => [...prev, ...combined]);
+
+      setHasMore(combined.length >= 12);
     } catch (error) {
       console.error('Error loading artworks:', error);
       setHasMore(false);
     } finally {
       setLoading(false);
     }
-  }, [filter, loading]);
+  }, [filter, loading, page]);
 
   useEffect(() => {
     if (filter !== 'generate' && filter !== 'inspiration') {
@@ -216,7 +234,7 @@ const Explore = () => {
           </div>
 
           {/* Filters */}
-          <div className="flex flex-wrap justify-center gap-4 mb-12">
+          <div className="flex flex-wrap justify-center gap-4 mb-12 overflow-x-auto">
             {filters.map(({ id, label, icon: Icon, isLink, isInspiration }) => (
               <button
                 key={id}
@@ -243,9 +261,7 @@ const Explore = () => {
                 <div
                   key={artwork.id}
                   className="animate-fade-in group"
-                  style={{ 
-                    animationDelay: `${(index % 12) * 0.05}s`
-                  }}
+                  style={{ animationDelay: `${(index % 12) * 0.05}s` }}
                 >
                   <div className="relative overflow-hidden rounded-xl bg-slate-900/50 backdrop-blur-sm border border-white/10 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20">
                     <div className="aspect-square overflow-hidden">
@@ -281,9 +297,7 @@ const Explore = () => {
                   key={artwork.id}
                   ref={index === artworks.length - 1 ? lastArtworkRef : null}
                   className="animate-fade-in"
-                  style={{ 
-                    animationDelay: `${(index % 12) * 0.05}s`
-                  }}
+                  style={{ animationDelay: `${(index % 12) * 0.05}s` }}
                 >
                   <ArtworkCard 
                     artwork={artwork} 
@@ -321,14 +335,8 @@ const Explore = () => {
 
       <style>{`
         @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>
