@@ -155,15 +155,16 @@ const ArtworkCard = ({ artwork, onLike, onComment }: ArtworkCardProps) => {
         onClick={() => setDetailModal(true)}
       >
         <div className="aspect-square overflow-hidden relative">
-          <img
-            src={artwork.image}
-            alt={artwork.title || 'Artwork'}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-            loading="lazy"
-            onError={(e) => {
-              e.currentTarget.src = 'https://via.placeholder.com/600x600?text=Image+Not+Found';
-            }}
-          />
+                <img
+                  src={artwork.image}
+                  alt={artwork.title || 'Artwork'}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  loading="lazy"
+                  onError={(e) => {
+                  console.error('Failed to load image:', artwork.image);
+                   e.currentTarget.style.display = 'none';
+        }}
+      />
           
           {/* Hover Overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -248,13 +249,14 @@ const ArtworkCard = ({ artwork, onLike, onComment }: ArtworkCardProps) => {
                 <div className="space-y-4">
                   <div className="relative aspect-square rounded-xl overflow-hidden bg-accent/10">
                     <img
-                      src={artwork.image}
-                      alt={artwork.title || 'Artwork'}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.src = 'https://via.placeholder.com/800x800?text=Image+Not+Found';
-                      }}
-                    />
+  src={artwork.image}
+  alt={artwork.title || 'Artwork'}
+  className="w-full h-full object-cover"
+  onError={(e) => {
+    console.error('Failed to load image:', artwork.image);
+    e.currentTarget.style.display = 'none';
+  }}
+/>
                   </div>
 
                   {/* Stats Row */}
