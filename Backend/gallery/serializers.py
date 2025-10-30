@@ -107,7 +107,7 @@ class CommentSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Comment
-        fields = ['id', 'user', 'artwork', 'content', 'created_at', 'updated_at']
+        fields = ['id', 'user', 'artwork', 'content','is_active', 'created_at', 'updated_at']
         read_only_fields = ['id', 'user', 'created_at', 'updated_at']
 
 
@@ -124,9 +124,8 @@ class ReportSerializer(serializers.ModelSerializer):
     """Serializer for Report model"""
     reporter = SimpleUserSerializer(read_only=True)
     artwork = serializers.SerializerMethodField()
-    
     comment = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Report
         fields = [
@@ -137,33 +136,74 @@ class ReportSerializer(serializers.ModelSerializer):
             'reason',
             'description',
             'resolved',
-            'created_at'
+            'created_at',
+            # 'resolved_at',  # si tu l’exposes au front
         ]
         read_only_fields = ['id', 'reporter', 'created_at']
-    
-    def get_artwork(self, obj):
-        """Get artwork details if report is for an artwork"""
-        if obj.artwork:
-            return {
-                'id': obj.artwork.id,
-                'title': obj.artwork.title,
-                'image': obj.artwork.image.url if obj.artwork.image else None,
-                'artist': SimpleUserSerializer(obj.artwork.artist).data  # <-- ajouté
 
+    def get_artwork(self, obj):
+        """
+        Retourne l’œuvre prioritairement depuis report.artwork,
+        sinon fallback sur report.comment.artwork pour les reports 'comment-only'.
+        """
+        art = getattr(obj, 'artwork', None)
+        if art is None and getattr(obj, 'comment', None) is not None:
+            art = getattr(obj.comment, 'artwork', None)
+        if art is None:
+            return None
+
+        # image: gère FileField/ImageField .url ou string
+        def img_url(a):
+            img = getattr(a, 'image', None)
+            if hasattr(img, 'url'):
+                return img.url
+            return img if isinstance(img, str) else None
+
+        artist = getattr(art, 'artist', None)
+        artist_dict = None
+        if artist is not None:
+            artist_dict = {
+                'id': getattr(artist, 'id', None),
+                'username': getattr(artist, 'username', None),
             }
-        return None
+
+        return {
+            'id': getattr(art, 'id', None),
+            'title': getattr(art, 'title', None),
+            'image': img_url(art),
+            'artist': artist_dict,  # utile pour "ban user" côté admin
+        }
     
+
     def get_comment(self, obj):
-        """Get comment details if report is for a comment"""
-        if obj.comment:
-            return {
-                'id': obj.comment.id,
-                'text': obj.comment.content,
-                'user': {
-                    'id': obj.comment.user.id,
-                    'username': obj.comment.user.username
-                }
-            }
+        """
+        Retourne le commentaire si présent, avec un sous-objet artwork minimal
+        (utile pour l’admin UI quand report.artwork est nul).
+        """
+        c = getattr(obj, 'comment', None)
+        if c is None:
+            return None
+
+        # sécurise artwork imbriqué si disponible
+        art = getattr(c, 'artwork', None)
+
+        def img_url(a):
+            if not a:
+                return None
+            img = getattr(a, 'image', None)
+            if hasattr(img, 'url'):
+                return img.url
+            return img if isinstance(img, str) else None
+
+        return {
+            'id': getattr(c, 'id', None),
+            'text': getattr(c, 'text', None),
+            'artwork': {
+                'id': getattr(art, 'id', None),
+                'title': getattr(art, 'title', None) if art else None,
+                'image': img_url(art),
+            } if art else None,
+        }
         return None
     def list_reports(request):
         reports = Report.objects.all()
@@ -267,9 +307,54 @@ class AdminUserSerializer(serializers.ModelSerializer):
     def get_artworks_count(self, obj):
         """Get the count of artworks for this user"""
         return obj.artworks.count()
-    
+
 class UserSerializer(serializers.ModelSerializer):
-    """Serializer pour les utilisateurs"""
     class Meta:
         model = User
-        fields = ['id', 'username', 'email']
+        fields = ['id', 'username', 'email', 'avatar']
+
+class CommentSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = Comment
+        fields = ['id', 'user', 'content', 'text', 'created_at', 'updated_at']
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        # Support both 'content' and 'text' fields
+        if hasattr(instance, 'content'):
+            representation['text'] = instance.content
+            representation['content'] = instance.content
+        return representation
+
+class ArtworkSerializer(serializers.ModelSerializer):
+    artist = UserSerializer(read_only=True)
+    likes_count = serializers.IntegerField(read_only=True)
+    comments_count = serializers.IntegerField(read_only=True)
+    comments = CommentSerializer(many=True, read_only=True)
+    is_liked = serializers.SerializerMethodField()
+    category = serializers.StringRelatedField()
+    
+    class Meta:
+        model = Artwork
+        fields = [
+            'id', 'title', 'description', 'image', 'artist',
+            'category', 'style', 'likes_count', 'comments_count',
+            'views', 'is_liked', 'is_featured', 'comments',
+            'created_at', 'updated_at'
+        ]
+    
+    def get_is_liked(self, obj):
+        request = self.context.get('request')
+        user = self.context.get('user')
+        
+        if not user or not user.is_authenticated:
+            return False
+        
+        # Check if already annotated (for optimization)
+        if hasattr(obj, 'user_has_liked'):
+            return obj.user_has_liked
+        
+        # Otherwise query
+        return Like.objects.filter(user=user, artwork=obj).exists()

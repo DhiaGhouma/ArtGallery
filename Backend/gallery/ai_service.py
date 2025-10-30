@@ -4,7 +4,7 @@ Uses Llama 3.1 for intelligent, context-aware comment generation
 """
 
 import os
-from openai import OpenAI
+#from openai import OpenAI
 from dotenv import load_dotenv
 from typing import List, Dict
 
@@ -12,10 +12,10 @@ from typing import List, Dict
 load_dotenv()
 
 # Initialize Groq client (uses OpenAI-compatible API)
-client = OpenAI(
-    api_key=os.getenv('GROQ_API_KEY'),
-    base_url='https://api.groq.com/openai/v1'
-)
+#client = OpenAI(
+ #   api_key=os.getenv('GROQ_API_KEY'),
+  #  base_url='https://api.groq.com/openai/v1'
+#)
 
 # Get model from environment or use default
 AI_MODEL = os.getenv('AI_MODEL', 'llama-3.3-70b-versatile')

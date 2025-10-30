@@ -1,33 +1,97 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Sparkles, TrendingUp, Clock, Zap, Heart, MessageCircle, Eye, X, Send, Flag } from 'lucide-react';
+import { Sparkles, TrendingUp, Clock, Zap, Heart, MessageCircle, Eye, Flame, Palette } from 'lucide-react';
 import { api } from '@/lib/api';
-import { ReportArtworkDialog } from '@/components/ReportArtworkDialog';
+import ArtworkCard from '@/components/ArtworkCard';
 
 const Explore = () => {
   const [artworks, setArtworks] = useState([]);
+  const [inspirationArtworks, setInspirationArtworks] = useState([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('trending');
-  const [commentModal, setCommentModal] = useState({ open: false, artworkId: null, artworkTitle: '' });
-  const [commentText, setCommentText] = useState('');
-  const [sendingComment, setSendingComment] = useState(false);
-  const [likeAnimations, setLikeAnimations] = useState({});
-  const [reportDialog, setReportDialog] = useState({ open: false, artworkId: null });
+  const [showInspiration, setShowInspiration] = useState(false);
   const observerRef = useRef(null);
   const lastArtworkRef = useRef(null);
 
   const filters = [
+    { id: 'all', label: 'All', icon: Flame },
     { id: 'trending', label: 'Most Liked', icon: TrendingUp },
+    { id: 'commented', label: 'Most Commented', icon: MessageCircle },
+    { id: 'viewed', label: 'Most Viewed', icon: Eye },
     { id: 'newest', label: 'Newest', icon: Clock },
     { id: 'generate', label: 'Generate your own', icon: Sparkles, isLink: true },
     { id: 'abstract', label: 'Abstract', icon: Zap },
+    { id: 'inspiration', label: 'Get Inspired', icon: Palette, isInspiration: true },
   ];
 
-  const handleFilterClick = (filterId, isLink) => {
+  // Fetch inspiration artworks from Art Institute of Chicago API
+  const loadInspirationArtworks = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(
+        'https://api.artic.edu/api/v1/artworks/search?q=painting&limit=12&fields=id,title,artist_display,date_display,image_id,thumbnail'
+      );
+      const data = await response.json();
+      
+      const formattedArtworks = data.data.map(artwork => ({
+        id: `inspiration-${artwork.id}`,
+        title: artwork.title,
+        artist: artwork.artist_display,
+        date: artwork.date_display,
+        imageUrl: artwork.image_id 
+          ? `https://www.artic.edu/iiif/2/${artwork.image_id}/full/843,/0/default.jpg`
+          : null,
+        isInspiration: true,
+      }));
+      
+      setInspirationArtworks(formattedArtworks.filter(art => art.imageUrl));
+    } catch (error) {
+      console.error('Error loading inspiration artworks:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // New API: Rijksmuseum
+  const loadRijksmuseumArtworks = async () => {
+    try {
+      setLoading(true);
+      const apiKey = 'YOUR_RIJKS_API_KEY'; // Replace with your free key
+      const res = await fetch(
+        `https://www.rijksmuseum.nl/api/en/collection?key=${apiKey}&ps=12&p=${page}&imgonly=True`
+      );
+      const data = await res.json();
+      const formatted = data.artObjects.map(a => ({
+        id: `rijks-${a.objectNumber}`,
+        title: a.title,
+        artist: a.principalOrFirstMaker,
+        date: a.longTitle?.split(',')[1] || '',
+        imageUrl: a.webImage?.url || null,
+        likes_count: Math.floor(Math.random() * 100), // fake likes
+        comments_count: Math.floor(Math.random() * 20), // fake comments
+        views: Math.floor(Math.random() * 500), // fake views
+      }));
+      return formatted.filter(a => a.imageUrl);
+    } catch (err) {
+      console.error('Rijksmuseum API error:', err);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFilterClick = (filterId, isLink, isInspiration) => {
     if (filterId === 'generate' && isLink) {
       window.location.href = 'http://localhost:8081/ai-image-modifier';
+    } else if (filterId === 'inspiration' && isInspiration) {
+      setShowInspiration(true);
+      setFilter('inspiration');
+      if (inspirationArtworks.length === 0) {
+        loadInspirationArtworks();
+      }
     } else {
+      setShowInspiration(false);
       setFilter(filterId);
     }
   };
@@ -37,50 +101,67 @@ const Explore = () => {
     setLoading(true);
 
     try {
-      const sortBy = filter === 'trending' ? '-likes_count' : filter === 'newest' ? '-created_at' : '-views';
-      const category = filter === 'abstract' ? 'abstract' : '';
-      
-      const response = await api.getArtworks({ 
-        page: pageNum, 
-        sort: sortBy, 
-        category: category,
-        search: '' 
-      });
-      
-      const data = Array.isArray(response) ? response : [];
-      
-      if (reset) {
-        setArtworks(data);
-      } else {
-        setArtworks(prev => [...prev, ...data]);
+      // Original backend artworks
+      const response = await api.getArtworks({ category: '', search: '' });
+      const backendArtworks = Array.isArray(response) ? response : [];
+
+      // New API artworks
+      const rijksArtworks = await loadRijksmuseumArtworks();
+
+      let combined = [...backendArtworks, ...rijksArtworks];
+
+      // Apply sorting based on filter
+      switch (filter) {
+        case 'trending':
+          combined.sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0));
+          break;
+        case 'commented':
+          combined.sort((a, b) => (b.comments_count || 0) - (a.comments_count || 0));
+          break;
+        case 'viewed':
+          combined.sort((a, b) => (b.views || 0) - (a.views || 0));
+          break;
+        case 'newest':
+          combined.sort((a, b) => 
+            (new Date(b.created_at || Date.now())).getTime() - 
+            (new Date(a.created_at || Date.now())).getTime()
+          );
+          break;
+        case 'abstract':
+          combined = combined.filter(a => a.title?.toLowerCase().includes('abstract'));
+          break;
       }
-      
-      setHasMore(data.length > 0 && data.length >= 12);
-      
+
+      if (reset) setArtworks(combined);
+      else setArtworks(prev => [...prev, ...combined]);
+
+      setHasMore(combined.length >= 12);
     } catch (error) {
       console.error('Error loading artworks:', error);
       setHasMore(false);
     } finally {
       setLoading(false);
     }
-  }, [filter, loading]);
+  }, [filter, loading, page]);
 
   useEffect(() => {
-    if (filter !== 'generate') {
+    if (filter !== 'generate' && filter !== 'inspiration') {
       setPage(1);
       loadArtworks(1, true);
     }
   }, [filter]);
 
   useEffect(() => {
-    if (page > 1 && filter !== 'generate') loadArtworks(page);
+    if (page > 1 && filter !== 'generate' && filter !== 'inspiration') {
+      loadArtworks(page);
+    }
   }, [page, loadArtworks]);
 
   useEffect(() => {
     if (observerRef.current) observerRef.current.disconnect();
 
     observerRef.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore && !loading) {
+      if (entries[0].isIntersecting && hasMore && !loading && !showInspiration) {
         setPage(prev => prev + 1);
       }
     });
@@ -88,72 +169,43 @@ const Explore = () => {
     if (lastArtworkRef.current) observerRef.current.observe(lastArtworkRef.current);
 
     return () => observerRef.current?.disconnect();
-  }, [hasMore, loading]);
+  }, [hasMore, loading, showInspiration]);
 
   const handleLike = async (id) => {
     try {
-      // Trigger animation
-      setLikeAnimations(prev => ({ ...prev, [id]: true }));
-      setTimeout(() => {
-        setLikeAnimations(prev => ({ ...prev, [id]: false }));
-      }, 600);
-
       const result = await api.likeArtwork(id);
+      
       setArtworks(prev =>
         prev.map(art => (art.id === id ? { 
           ...art, 
-          likes_count: result.likes_count ?? (art.likes_count || 0) + 1,
+          likes_count: result.likes_count,
           is_liked: result.liked 
         } : art))
       );
     } catch (error) {
       console.error('Failed to like artwork:', error);
+      throw error;
     }
   };
 
-  const openCommentModal = (artwork) => {
-    setCommentModal({ 
-      open: true, 
-      artworkId: artwork.id, 
-      artworkTitle: artwork.title 
-    });
-  };
-
-  const closeCommentModal = () => {
-    setCommentModal({ open: false, artworkId: null, artworkTitle: '' });
-    setCommentText('');
-  };
-
-  const handleComment = async (e) => {
-    e.preventDefault();
-    if (!commentText.trim() || sendingComment) return;
-
-    setSendingComment(true);
+  const handleComment = async (id, commentText) => {
     try {
-      await api.commentOnArtwork(commentModal.artworkId, commentText);
-      setCommentText('');
-      closeCommentModal();
-      // Optionally refresh the artwork to show new comment
+      const newComment = await api.commentOnArtwork(id, commentText);
+      
+      setArtworks(prev =>
+        prev.map(art => (art.id === id ? { 
+          ...art, 
+          comments: [newComment, ...(art.comments || [])]
+        } : art))
+      );
+      
     } catch (error) {
       console.error('Failed to add comment:', error);
-      alert(error.message || 'Failed to add comment. Please login first.');
-    } finally {
-      setSendingComment(false);
+      throw error;
     }
   };
 
-  const openReportDialog = (artworkId) => {
-    setReportDialog({ open: true, artworkId });
-  };
-
-  const closeReportDialog = () => {
-    setReportDialog({ open: false, artworkId: null });
-  };
-
-  const handleReportSubmitted = () => {
-    console.log('Report submitted successfully');
-    closeReportDialog();
-  };
+  const displayArtworks = showInspiration ? inspirationArtworks : artworks;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
@@ -174,19 +226,22 @@ const Explore = () => {
           {/* Header */}
           <div className="text-center mb-12 animate-fade-in">
             <h1 className="text-5xl sm:text-7xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent mb-4">
-              Explore Art
+              {showInspiration ? 'Get Inspired' : 'Explore Art'}
             </h1>
             <p className="text-xl text-slate-400">
-              Discover trending masterpieces from our creative community
+              {showInspiration 
+                ? 'Discover masterpieces from the Art Institute of Chicago'
+                : 'Discover trending masterpieces from our creative community'
+              }
             </p>
           </div>
 
           {/* Filters */}
-          <div className="flex flex-wrap justify-center gap-4 mb-12">
-            {filters.map(({ id, label, icon: Icon, isLink }) => (
+          <div className="flex flex-wrap justify-center gap-4 mb-12 overflow-x-auto">
+            {filters.map(({ id, label, icon: Icon, isLink, isInspiration }) => (
               <button
                 key={id}
-                onClick={() => handleFilterClick(id, isLink)}
+                onClick={() => handleFilterClick(id, isLink, isInspiration)}
                 className={`
                   flex items-center gap-2 px-6 py-3 rounded-full font-medium
                   transition-all duration-300 backdrop-blur-sm
@@ -203,106 +258,59 @@ const Explore = () => {
           </div>
 
           {/* Artwork Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {artworks.map((artwork, index) => (
-              <div
-                key={artwork.id}
-                ref={index === artworks.length - 1 ? lastArtworkRef : null}
-                className="group relative overflow-hidden rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 hover:border-purple-500/50 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-purple-500/20"
-                style={{ 
-                  animation: `fadeIn 0.5s ease-out ${(index % 12) * 0.05}s both`
-                }}
-              >
-                <div className="aspect-square overflow-hidden relative">
-                  <img
-                    src={artwork.image}
-                    alt={artwork.title || 'Artwork'}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    loading="lazy"
-                    onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                      e.currentTarget.src = 'https://via.placeholder.com/600x600?text=Image+Not+Found';
-                    }}
-                  />
-                  
-                  {/* Hover Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-                  {/* Like Animation Hearts */}
-                  {likeAnimations[artwork.id] && (
-                    <>
-                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none" style={{ animation: 'heartBurst 0.6s ease-out' }}>
-                        <Heart className="w-20 h-20 text-red-500 fill-red-500" />
+          {showInspiration ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {inspirationArtworks.map((artwork, index) => (
+                <div
+                  key={artwork.id}
+                  className="animate-fade-in group"
+                  style={{ animationDelay: `${(index % 12) * 0.05}s` }}
+                >
+                  <div className="relative overflow-hidden rounded-xl bg-slate-900/50 backdrop-blur-sm border border-white/10 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20">
+                    <div className="aspect-square overflow-hidden">
+                      <img 
+                        src={artwork.imageUrl} 
+                        alt={artwork.title}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                      />
+                    </div>
+                    <div className="p-4">
+                      <h3 className="text-white font-semibold text-lg mb-1 line-clamp-2">
+                        {artwork.title}
+                      </h3>
+                      <p className="text-slate-400 text-sm line-clamp-2">
+                        {artwork.artist}
+                      </p>
+                      <p className="text-slate-500 text-xs mt-1">
+                        {artwork.date}
+                      </p>
+                      <div className="mt-3 flex items-center gap-2 text-xs text-purple-400">
+                        <Palette className="w-3 h-3" />
+                        <span>Art Institute of Chicago</span>
                       </div>
-                      {[...Array(8)].map((_, i) => (
-                        <div
-                          key={i}
-                          className="absolute top-1/2 left-1/2 pointer-events-none"
-                          style={{
-                            animation: `heartFloat${i} 0.8s ease-out`,
-                            animationDelay: `${i * 0.05}s`
-                          }}
-                        >
-                          <Heart className="w-6 h-6 text-red-400 fill-red-400" />
-                        </div>
-                      ))}
-                    </>
-                  )}
-
-                  {/* Action Buttons */}
-                  <div className="absolute inset-0 flex items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
-                    <button
-                      onClick={() => handleLike(artwork.id)}
-                      className={`p-3 rounded-full backdrop-blur-md border transition-all hover:scale-110 ${
-                        artwork.is_liked 
-                          ? 'bg-red-500/50 border-red-400' 
-                          : 'bg-purple-500/30 border-purple-400/50 hover:bg-purple-500/50'
-                      }`}
-                    >
-                      <Heart className={`w-6 h-6 ${artwork.is_liked ? 'fill-white text-white' : 'text-white'}`} />
-                    </button>
-                    <button 
-                      onClick={() => openCommentModal(artwork)}
-                      className="p-3 rounded-full bg-blue-500/30 backdrop-blur-md border border-blue-400/50 hover:bg-blue-500/50 transition-all hover:scale-110"
-                    >
-                      <MessageCircle className="w-6 h-6 text-white" />
-                    </button>
-                    <button 
-                      onClick={() => openReportDialog(artwork.id)}
-                      className="p-3 rounded-full bg-orange-500/30 backdrop-blur-md border border-orange-400/50 hover:bg-orange-500/50 transition-all hover:scale-110"
-                      title="Report artwork"
-                    >
-                      <Flag className="w-6 h-6 text-white" />
-                    </button>
+                    </div>
                   </div>
                 </div>
-
-                {/* Card Info */}
-                <div className="p-4">
-                  <h3 className="font-semibold text-lg mb-2 text-white line-clamp-1 group-hover:text-purple-400 transition-colors">
-                    {artwork.title || 'Untitled'}
-                  </h3>
-                  <p className="text-sm text-slate-400 mb-3 line-clamp-2">
-                    {artwork.description || 'No description available'}
-                  </p>
-                  
-                  <div className="flex items-center gap-4 text-sm text-slate-400">
-                    <span className="flex items-center gap-1">
-                      <Heart className="w-4 h-4" />
-                      {artwork.likes_count ?? 0}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Eye className="w-4 h-4" />
-                      {artwork.views ?? 0}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MessageCircle className="w-4 h-4" />
-                      {artwork.comments_count ?? 0}
-                    </span>
-                  </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {artworks.map((artwork, index) => (
+                <div
+                  key={artwork.id}
+                  ref={index === artworks.length - 1 ? lastArtworkRef : null}
+                  className="animate-fade-in"
+                  style={{ animationDelay: `${(index % 12) * 0.05}s` }}
+                >
+                  <ArtworkCard 
+                    artwork={artwork} 
+                    onLike={handleLike}
+                    onComment={handleComment}
+                  />
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
           {/* Loading Spinner */}
           {loading && (
@@ -312,14 +320,14 @@ const Explore = () => {
           )}
 
           {/* End Message */}
-          {!hasMore && artworks.length > 0 && (
+          {!hasMore && artworks.length > 0 && !showInspiration && (
             <div className="text-center py-12">
               <p className="text-slate-400 text-lg">You've reached the end! ✨</p>
             </div>
           )}
 
           {/* Empty State */}
-          {!loading && artworks.length === 0 && (
+          {!loading && displayArtworks.length === 0 && (
             <div className="text-center py-20">
               <Sparkles className="w-16 h-16 text-purple-400 mx-auto mb-4 opacity-50" />
               <p className="text-xl text-slate-400">No artworks found</p>
@@ -328,132 +336,10 @@ const Explore = () => {
         </div>
       </div>
 
-      {/* Comment Modal */}
-      {commentModal.open && (
-        <div 
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={closeCommentModal}
-        >
-          <div 
-            className="bg-slate-900 rounded-2xl max-w-lg w-full border border-purple-500/30 shadow-2xl shadow-purple-500/20"
-            onClick={(e) => e.stopPropagation()}
-            style={{ animation: 'modalSlideIn 0.3s ease-out' }}
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-white/10">
-              <h3 className="text-xl font-semibold text-white">
-                Add Comment
-              </h3>
-              <button 
-                onClick={closeCommentModal}
-                className="p-2 hover:bg-white/10 rounded-full transition-colors"
-              >
-                <X className="w-5 h-5 text-slate-400" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6">
-              <p className="text-sm text-slate-400 mb-4">
-                Commenting on: <span className="text-purple-400 font-medium">{commentModal.artworkTitle}</span>
-              </p>
-              
-              <form onSubmit={handleComment}>
-                <textarea
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="Share your thoughts..."
-                  className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 transition-all min-h-[120px] resize-none"
-                  autoFocus
-                />
-                
-                <div className="flex justify-end gap-3 mt-4">
-                  <button
-                    type="button"
-                    onClick={closeCommentModal}
-                    className="px-5 py-2 rounded-full bg-white/5 text-slate-300 hover:bg-white/10 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!commentText.trim() || sendingComment}
-                    className="px-5 py-2 rounded-full bg-purple-500 text-white hover:bg-purple-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Send className="w-4 h-4" />
-                    {sendingComment ? 'Sending...' : 'Send'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Report Dialog */}
-      <ReportArtworkDialog
-        open={reportDialog.open}
-        onOpenChange={closeReportDialog}
-        artworkId={reportDialog.artworkId}
-        onReportSubmitted={() => {
-          closeReportDialog();
-        }}
-      />
-
       <style>{`
         @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes heartBurst {
-          0% {
-            transform: translate(-50%, -50%) scale(0);
-            opacity: 1;
-          }
-          50% {
-            transform: translate(-50%, -50%) scale(1.2);
-          }
-          100% {
-            transform: translate(-50%, -50%) scale(0.9);
-            opacity: 0;
-          }
-        }
-
-        ${[...Array(8)].map((_, i) => {
-          const angle = (i * 45) * Math.PI / 180;
-          const distance = 60;
-          const x = Math.cos(angle) * distance;
-          const y = Math.sin(angle) * distance;
-          return `
-            @keyframes heartFloat${i} {
-              0% {
-                transform: translate(-50%, -50%) scale(0);
-                opacity: 1;
-              }
-              100% {
-                transform: translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) scale(0.5);
-                opacity: 0;
-              }
-            }
-          `;
-        }).join('\n')}
-
-        @keyframes modalSlideIn {
-          from {
-            opacity: 0;
-            transform: translateY(-20px) scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>

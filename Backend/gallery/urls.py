@@ -4,13 +4,18 @@ from . import views
 urlpatterns = [
     # Artworks
     path('artworks/', views.index, name='artworks'),
-    path('artworks/<int:pk>/', views.artwork_detail, name='artwork_detail'),
     path('artworks/upload/', views.upload_artwork, name='upload_artwork'),
-    path('artworks/<int:pk>/delete/', views.delete_artwork, name='delete_artwork'),
+    path('artworks/<int:pk>/', views.artwork_detail_update_delete, name='artwork_detail'),
+    path('artworks/<int:pk>/update/', views.update_artwork, name='update_artwork'),  # Add this
     path('artworks/<int:pk>/like/', views.toggle_like, name='toggle_like'),
     path('artworks/<int:pk>/comment/', views.add_comment, name='add_comment'),
     path('artworks/<int:pk>/suggest-comments/', views.suggest_comments, name='suggest_comments'),
+    #techniques
+    path('generate-technique/', views.generate_art_technique, name='generate_art_technique'),
     
+    path('artworks/<int:pk>/update/', views.update_artwork, name='update_artwork'),
+    path('artworks/generate-description/', views.generate_description, name='generate_description'),
+
     # Comments
     path('comments/<int:pk>/', views.delete_comment, name='delete_comment'),
     
@@ -43,4 +48,6 @@ urlpatterns = [
     # Evaluation (IA)
     path('evaluation/', include('evaluation.urls')),
 
+    
+    
 ]

@@ -24,6 +24,8 @@ import AIImageModifier from "./pages/AiImageModifier";
 import AdminDashboard from "./pages/Admin/AdminDashboard";
 import Evaluation from "./pages/Evaluation";
 import CommunityHub from "./pages/CommunityHub";
+import TechniqueEncyclopedia from "./pages/TechniqueEncyclopedia";
+import MyListings from "./pages/MyListings";
 const queryClient = new QueryClient();
 
 function AppRoutes() {
@@ -63,6 +65,10 @@ function AppRoutes() {
         <Route path="/evaluation" element={<Evaluation />} />
         <Route path="/community-hub" element={<CommunityHub />} />
 
+        <Route path="/technique-encyclopedia" element={<TechniqueEncyclopedia />} />
+        <Route path="/my-listings" element={<MyListings />} />
+
+        
       </Routes>
     </>
   );

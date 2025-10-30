@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageSquare, Users, BookOpen, Sparkles, Send } from 'lucide-react';
+import { MessageSquare, Users, BookOpen, Sparkles, Send, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import YouTubeTutorials from '@/components/YouTubeTutorials';
 
 interface Discussion {
   id: number;
@@ -24,6 +25,7 @@ const Community = () => {
   const navigate = useNavigate();
   const [chatMessage, setChatMessage] = useState('');
   const [aiResponse, setAiResponse] = useState('');
+  const [activeTab, setActiveTab] = useState<'discussions' | 'tutorials'>('discussions');
 
   const discussions: Discussion[] = [
     {
@@ -79,24 +81,26 @@ const Community = () => {
   ];
 
   const categories = [
-    { name: 'All Discussions', icon: MessageSquare, count: 234 },
-    { name: 'Tutorials', icon: BookOpen, count: 67 },
-    { name: 'Techniques', icon: Sparkles, count: 89 },
-    { name: 'Exhibitions', icon: Users, count: 45 },
+    { name: 'All Discussions', icon: MessageSquare },
+    { name: 'Tutorials', icon: BookOpen, onClick: () => setActiveTab('tutorials') },
+    { name: 'Techniques', icon: Sparkles },
+    { name: 'Exhibitions', icon: Users},
   ];
 
   const handleCategoryClick = (categoryName: string) => {
-    if (categoryName === 'All Discussions') {
-      // Rediriger vers la page CommunityHub
-      navigate('/community-hub');
-    } else {
-      // Filtrer par catégorie (à implémenter)
-      toast({
-        title: 'Category Selected',
-        description: `Filtering by ${categoryName}`,
-      });
-    }
-  };
+  if (categoryName === 'All Discussions') {
+    navigate('/community-hub');
+  } else if (categoryName === 'Techniques') {
+    // Redirect to your internal route
+    navigate('/technique-encyclopedia');
+  } else {
+    toast({
+      title: 'Category Selected',
+      description: `Filtering by ${categoryName}`,
+    });
+  }
+};
+
 
   const handleAIChat = () => {
     if (!chatMessage.trim()) return;
@@ -141,7 +145,6 @@ const Community = () => {
                     >
                       <Icon className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
                       <span className="flex-1 text-left">{cat.name}</span>
-                      <span className="text-sm text-muted-foreground">{cat.count}</span>
                     </button>
                   );
                 })}
@@ -184,6 +187,52 @@ const Community = () => {
 
           {/* Discussions Feed */}
           <div className="lg:col-span-3 space-y-6">
+            {/* Tab Switcher */}
+            <div className="flex gap-4 mb-6">
+              <button
+                onClick={() => setActiveTab('discussions')}
+                className={`
+                  flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all
+                  ${activeTab === 'discussions' 
+                    ? 'bg-primary text-primary-foreground shadow-lg' 
+                    : 'bg-accent/20 hover:bg-accent/30'
+                  }
+                `}
+              >
+                <MessageSquare className="w-5 h-5" />
+                Discussions
+              </button>
+              <button
+                onClick={() => setActiveTab('tutorials')}
+                className={`
+                  flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all
+                  ${activeTab === 'tutorials' 
+                    ? 'bg-primary text-primary-foreground shadow-lg' 
+                    : 'bg-accent/20 hover:bg-accent/30'
+                  }
+                `}
+              >
+                <Video className="w-5 h-5" />
+                Video Tutorials
+              </button>
+            </div>
+
+            {/* Tutorials Section */}
+            {activeTab === 'tutorials' && (
+              <div className="animate-fade-in">
+                <div className="mb-6">
+                  <h2 className="text-3xl font-bold gradient-text mb-2">Learn from the Best</h2>
+                  <p className="text-muted-foreground">
+                    Curated video tutorials to help you master your craft
+                  </p>
+                </div>
+                <YouTubeTutorials />
+              </div>
+            )}
+
+            {/* Discussions Section */}
+            {activeTab === 'discussions' && (
+              <>
             {/* Create New Discussion */}
             {isAuthenticated && (
               <div className="glass-effect rounded-2xl p-6 animate-scale-in">
@@ -245,6 +294,8 @@ const Community = () => {
                 </div>
               </div>
             ))}
+            </>
+            )}
           </div>
         </div>
       </div>

@@ -9,6 +9,8 @@ export interface Artwork {
   image: string;
   category: string;
   style: string;
+  price?: number;  // AJOUTEZ
+  in_stock?: boolean;  // AJOUTEZ
   artist: {
     id: number;
     username: string;
@@ -35,6 +37,7 @@ export interface Comment {
   created_at: string;
 }
 
+// Types
 export interface Report {
   id: number;
   reporter: {
@@ -43,19 +46,25 @@ export interface Report {
   };
   artwork?: {
     id: number;
-    title: string;
-    image: string;
-    artist: {                
+    title?: string;
+    image?: string;
+    artist?: {                
       id: number;
       username: string;
     };
-  };
+  } | null;
   comment?: {
     id: number;
-    text: string;
-  };
+    text?: string | null;
+    // ✅ parfois le backend renvoie l’œuvre liée au commentaire :
+    artwork?: {
+      id: number;
+      title?: string;
+      image?: string;
+    } | null;
+  } | null;
   reason: string;
-  description?: string;
+  description?: string | null;
   resolved?: boolean;
   created_at: string;
 }
@@ -85,6 +94,14 @@ export interface LoginResponse {
 export interface RegisterResponse {
   message: string;
   user: User;
+}
+
+export interface Evaluation {
+  id: number;
+  user: string;
+  score: number;
+  badge: string;
+  last_evaluated: string;
 }
 
 // Helper to get CSRF token from cookies
@@ -183,10 +200,85 @@ export const api = {
     
     return response.json();
   },
+  /*
 
   async updateArtwork(id: number, formData: FormData): Promise<{ message: string }> {
-    const response = await fetch(`${API_BASE_URL}/artworks/${id}/`, {
-      method: 'PUT',
+  const response = await fetch(`${API_BASE_URL}/artworks/${id}/update/`, {
+    method: 'POST',  // Changed from PUT to POST
+    headers: getAuthHeader(),
+    credentials: 'include',
+    body: formData,
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to update artwork');
+  }
+  
+  return response.json();
+},
+  async deleteArtwork(id: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/artworks/${id}/delete/`, {  // <--- ici
+    method: 'DELETE',
+    headers: getAuthHeader(),
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to delete artwork');
+  }
+},
+
+
+  async updateArtwork(id: number, data: {
+  title?: string;
+  description?: string;
+  price?: number;
+  in_stock?: boolean;
+  category?: string;
+  style?: string;
+}): Promise<{ message: string; id: number }> {
+  const response = await fetch(`${API_BASE_URL}/artworks/${id}/update/`, {
+    method: 'PUT',
+    headers: {
+      ...getAuthHeader(),
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to update artwork');
+  }
+  
+  return response.json();
+},
+
+ */
+  async updateArtwork(id: number, data: {
+  title?: string;
+  description?: string;
+  price?: number;
+  in_stock?: boolean;
+  category?: string;
+  style?: string;
+  image?: File;
+}): Promise<{ message: string; id: number }> {
+  if (data.image) {
+    const formData = new FormData();
+    if (data.title) formData.append('title', data.title);
+    if (data.description) formData.append('description', data.description);
+    if (data.price !== undefined) formData.append('price', data.price.toString());
+    if (data.in_stock !== undefined) formData.append('in_stock', data.in_stock.toString());
+    if (data.category) formData.append('category', data.category);
+    if (data.style) formData.append('style', data.style);
+    formData.append('image', data.image);
+
+    const response = await fetch(`${API_BASE_URL}/artworks/${id}/update/`, {
+      method: 'POST',
       headers: getAuthHeader(),
       credentials: 'include',
       body: formData,
@@ -198,10 +290,28 @@ export const api = {
     }
     
     return response.json();
-  },
+  }
+  
+  const response = await fetch(`${API_BASE_URL}/artworks/${id}/update/`, {
+    method: 'PUT',
+    headers: {
+      ...getAuthHeader(),
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to update artwork');
+  }
+  
+  return response.json();
+},
 
-  async deleteArtwork(id: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/artworks/${id}/delete/`, {  // <--- ici
+async deleteArtwork(id: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/artworks/${id}/delete/`, {
     method: 'DELETE',
     headers: getAuthHeader(),
     credentials: 'include',
@@ -306,6 +416,30 @@ export const api = {
     
     return response.json();
   },
+// ============ AI Description Generation ============
+
+async generateDescription(data: {
+  title: string;
+  category?: string;
+  style?: string;
+}): Promise<{ descriptions: string[]; title: string }> {
+  const response = await fetch(`${API_BASE_URL}/artworks/generate-description/`, {
+    method: 'POST',
+    headers: {
+      ...getAuthHeader(),
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to generate description');
+  }
+  
+  return response.json();
+},
 
   // ============ Reports ============
   
@@ -459,17 +593,26 @@ export const api = {
 
   
   async getReports(): Promise<Report[]> {
-    const response = await fetch(`${API_BASE_URL}/reports/all/`, {
-      credentials: 'include',
-      headers: getAuthHeader(),
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch reports');
-    }
-    
-    return response.json();
-  },
+  const response = await fetch(`${API_BASE_URL}/reports/all/`, {
+    credentials: 'include',
+    headers: getAuthHeader(),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch reports');
+  }
+  const data = await response.json();
+
+  // ✅ Normalisation: si report.artwork absent, essaie via report.comment.artwork
+  const normalized: Report[] = (Array.isArray(data) ? data : []).map((r: any) => {
+    const fallbackArtwork = r.artwork ?? r?.comment?.artwork ?? null;
+    return {
+      ...r,
+      artwork: fallbackArtwork,
+    };
+  });
+
+  return normalized;
+},
 
   async createReport(data: {
   artwork_id?: number;
@@ -678,6 +821,7 @@ export const api = {
     
     return response.json();
   },
+  
 
   // ============ Categories ============
   
@@ -695,5 +839,26 @@ export const api = {
     }
     
     return response.json();
+  },
+
+  // ============ Evaluation ============
+  evaluation: {
+    async getEvaluations(): Promise<Evaluation[]> {
+      const res = await fetch(`${API_BASE_URL}/evaluation/evaluations/`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to fetch evaluations');
+      return res.json();
+    },
+
+    async evaluateUser(userId: number): Promise<Evaluation> {
+      const res = await fetch(`${API_BASE_URL}/evaluation/evaluations/${userId}/evaluate/`, {
+        method: 'POST',
+        headers: getAuthHeader(),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to evaluate user');
+      return res.json();
+    },
   },
 };

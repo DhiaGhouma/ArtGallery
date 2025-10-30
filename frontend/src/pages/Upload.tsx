@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload as UploadIcon, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
+import { Upload as UploadIcon, Image as ImageIcon, Loader2, DollarSign, Sparkles } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 
 const Upload = () => {
@@ -16,13 +18,36 @@ const Upload = () => {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
   const [style, setStyle] = useState('');
+  const [price, setPrice] = useState('0');
+  const [inStock, setInStock] = useState(true);
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string>('');
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [generatedDescriptions, setGeneratedDescriptions] = useState<string[]>([]);
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // AI Description Generation Mutation
+  const generateDescriptionMutation = useMutation({
+    mutationFn: (data: { title: string; category?: string; style?: string }) => 
+      api.generateDescription(data),
+    onSuccess: (data) => {
+      setGeneratedDescriptions(data.descriptions);
+      toast({
+        title: 'AI Generated!',
+        description: `Generated ${data.descriptions.length} description options`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Generation Failed',
+        description: error.message || 'Failed to generate descriptions',
+        variant: 'destructive',
+      });
+    },
+  });
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -34,6 +59,32 @@ const Upload = () => {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleGenerateDescription = () => {
+    if (!title) {
+      toast({
+        title: 'Title Required',
+        description: 'Please enter a title first',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    generateDescriptionMutation.mutate({
+      title,
+      category: category || undefined,
+      style: style || undefined,
+    });
+  };
+
+  const handleSelectDescription = (desc: string) => {
+    setDescription(desc);
+    setGeneratedDescriptions([]);
+    toast({
+      title: 'Description Selected',
+      description: 'You can edit it if needed',
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,6 +119,8 @@ const Upload = () => {
       formData.append('description', description);
       formData.append('category', category);
       formData.append('style', style);
+      formData.append('price', price);
+      formData.append('in_stock', inStock.toString());
 
       // Simulate progress
       const interval = setInterval(() => {
@@ -184,21 +237,6 @@ const Upload = () => {
               />
             </div>
 
-            {/* Description */}
-            <div>
-              <Label htmlFor="description" className="text-lg font-semibold mb-2 block">
-                Description
-              </Label>
-              <Textarea
-                id="description"
-                placeholder="Describe your artwork..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                className="bg-background/50"
-              />
-            </div>
-
             {/* Category & Style */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -210,10 +248,12 @@ const Upload = () => {
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="digital">Digital Art</SelectItem>
-                    <SelectItem value="painting">Painting</SelectItem>
-                    <SelectItem value="photography">Photography</SelectItem>
-                    <SelectItem value="3d">3D Art</SelectItem>
+                    <SelectItem value="Digital">Digital Art</SelectItem>
+                    <SelectItem value="Painting">Painting</SelectItem>
+                    <SelectItem value="Photography">Photography</SelectItem>
+                    <SelectItem value="3D">3D Art</SelectItem>
+                    <SelectItem value="Abstract">Abstract</SelectItem>
+                    <SelectItem value="Landscape">Landscape</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -228,11 +268,116 @@ const Upload = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="abstract">Abstract</SelectItem>
-                    <SelectItem value="realism">Realism</SelectItem>
-                    <SelectItem value="surreal">Surreal</SelectItem>
-                    <SelectItem value="minimalist">Minimalist</SelectItem>
+                    <SelectItem value="realistic">Realistic</SelectItem>
+                    <SelectItem value="digital">Digital Art</SelectItem>
+                    <SelectItem value="generative">Generative Art</SelectItem>
+                    <SelectItem value="photography">Photography</SelectItem>
+                    <SelectItem value="mixed">Mixed Media</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            {/* Description with AI Generator */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <Label htmlFor="description" className="text-lg font-semibold">
+                  Description
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateDescription}
+                  disabled={!title || generateDescriptionMutation.isPending}
+                  className="gap-2"
+                >
+                  {generateDescriptionMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Generate with AI
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* AI Generated Descriptions */}
+              {generatedDescriptions.length > 0 && (
+                <div className="mb-4 space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    ✨ AI Generated Descriptions (click to use):
+                  </p>
+                  {generatedDescriptions.map((desc, index) => (
+                    <div
+                      key={index}
+                      onClick={() => handleSelectDescription(desc)}
+                      className="p-3 rounded-lg bg-primary/10 hover:bg-primary/20 cursor-pointer transition-all border border-primary/20 hover:border-primary/40"
+                    >
+                      <p className="text-sm">{desc}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Textarea
+                id="description"
+                placeholder="Describe your artwork... or generate with AI"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
+                className="bg-background/50"
+              />
+              <p className="text-sm text-muted-foreground mt-1">
+                💡 Tip: Fill in title, category, and style first, then click "Generate with AI"
+              </p>
+            </div>
+
+            {/* Price & In Stock */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Label htmlFor="price" className="text-lg font-semibold mb-2 block">
+                  Price ($)
+                </Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    className="bg-background/50 pl-10"
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Set to 0 for free artworks
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="in_stock" className="text-lg font-semibold mb-2 block">
+                  Availability
+                </Label>
+                <div className="flex items-center justify-between p-4 rounded-xl bg-background/50 border">
+                  <div>
+                    <p className="font-medium">In Stock</p>
+                    <p className="text-sm text-muted-foreground">
+                      {inStock ? 'Available for purchase' : 'Not available'}
+                    </p>
+                  </div>
+                  <Switch
+                    id="in_stock"
+                    checked={inStock}
+                    onCheckedChange={setInStock}
+                  />
+                </div>
               </div>
             </div>
 

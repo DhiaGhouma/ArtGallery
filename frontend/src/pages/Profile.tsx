@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Camera, Mail, MapPin, Globe, Edit2, Save, X, Upload as UploadIcon } from 'lucide-react';
+import { Camera, Mail, MapPin, Globe, Edit2, Save, X, Upload as UploadIcon, Trash2, Edit } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, Artwork } from '@/lib/api';
-import ArtworkCard from '@/components/ArtworkCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,9 +9,27 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const Profile = () => {
-  const { user, isAuthenticated, loading: authLoading, refreshUser } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [editing, setEditing] = useState(false);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -27,6 +44,24 @@ const Profile = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Edit artwork state
+  const [editingArtwork, setEditingArtwork] = useState<Artwork | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [editStyle, setEditStyle] = useState('');
+  const [editImage, setEditImage] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState('');
+  const [updatingArtwork, setUpdatingArtwork] = useState(false);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Delete artwork state
+  const [deletingArtwork, setDeletingArtwork] = useState<Artwork | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const categories = ['Photography', 'Digital Art', 'Painting', 'Sculpture', 'Illustration', 'Mixed Media'];
+  const styles = ['Abstract', 'Realistic', 'Minimalist', 'Surreal', 'Contemporary', 'Traditional'];
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -52,7 +87,6 @@ const Profile = () => {
       setLoading(true);
       const response = await api.getArtworks();
       const allArtworks = Array.isArray(response) ? response : [];
-      // Filter artworks by current user
       const userArtworks = allArtworks.filter(art => art.artist.id === user.id);
       setArtworks(userArtworks);
     } catch (error) {
@@ -91,7 +125,6 @@ const Profile = () => {
     try {
       setSaving(true);
 
-      // Update profile data
       const profileData = {
         username: username !== user?.username ? username : undefined,
         email: email !== user?.email ? email : undefined,
@@ -100,24 +133,18 @@ const Profile = () => {
         website,
       };
 
-      // Remove undefined values
       Object.keys(profileData).forEach(key => 
         profileData[key as keyof typeof profileData] === undefined && delete profileData[key as keyof typeof profileData]
       );
 
       await api.updateProfile(profileData);
 
-      // Upload avatar if changed
       if (avatar) {
         await api.uploadAvatar(avatar);
       }
 
       setEditing(false);
       setAvatar(null);
-      
-      // Refresh user data
-      const updatedUser = await api.getProfile();
-      // Update auth context if needed
       
       toast({
         title: 'Success',
@@ -144,6 +171,113 @@ const Profile = () => {
       setLocation(user.location || '');
       setWebsite(user.website || '');
       setAvatarPreview(user.avatar || '');
+    }
+  };
+
+  // Edit artwork handlers
+  const handleEditArtwork = (artwork: Artwork) => {
+    setEditingArtwork(artwork);
+    setEditTitle(artwork.title);
+    setEditDescription(artwork.description);
+    setEditCategory(artwork.category);
+    setEditStyle(artwork.style);
+    setEditImagePreview(artwork.image);
+    setEditImage(null);
+  };
+
+  const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: 'File too large',
+          description: 'Image must be less than 10MB',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setEditImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUpdateArtwork = async () => {
+    if (!editingArtwork) return;
+
+    try {
+      setUpdatingArtwork(true);
+
+      const formData = new FormData();
+      formData.append('title', editTitle);
+      formData.append('description', editDescription);
+      formData.append('category', editCategory);
+      formData.append('style', editStyle);
+      
+      if (editImage) {
+        formData.append('image', editImage);
+      }
+
+      await api.updateArtwork(editingArtwork.id, formData);
+
+      toast({
+        title: 'Success',
+        description: 'Artwork updated successfully',
+      });
+
+      setEditingArtwork(null);
+      loadUserArtworks();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update artwork',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingArtwork(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingArtwork(null);
+    setEditTitle('');
+    setEditDescription('');
+    setEditCategory('');
+    setEditStyle('');
+    setEditImage(null);
+    setEditImagePreview('');
+  };
+
+  // Delete artwork handlers
+  const handleDeleteClick = (artwork: Artwork) => {
+    setDeletingArtwork(artwork);
+  };
+
+  const handleDeleteArtwork = async () => {
+    if (!deletingArtwork) return;
+
+    try {
+      setDeleting(true);
+      await api.deleteArtwork(deletingArtwork.id);
+
+      toast({
+        title: 'Success',
+        description: 'Artwork deleted successfully',
+      });
+
+      setDeletingArtwork(null);
+      loadUserArtworks();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete artwork',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -372,9 +506,44 @@ const Profile = () => {
           ) : artworks.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {artworks.map((artwork, idx) => (
-                <div key={artwork.id} className="animate-fade-in" style={{ animationDelay: `${idx * 0.05}s` }}>
-                  <ArtworkCard artwork={artwork} />
-                </div>
+                <Card key={artwork.id} className="overflow-hidden glass-effect group animate-fade-in" style={{ animationDelay: `${idx * 0.05}s` }}>
+                  <div className="relative aspect-square overflow-hidden cursor-pointer" onClick={() => navigate(`/artwork/${artwork.id}`)}>
+                    <img
+                      src={artwork.image}
+                      alt={artwork.title}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-semibold text-lg mb-1 truncate">{artwork.title}</h3>
+                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{artwork.description}</p>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
+                      <span>{artwork.likes_count} likes</span>
+                      <span>{artwork.views} views</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => handleEditArtwork(artwork)}
+                      >
+                        <Edit className="w-4 h-4 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 text-destructive hover:text-destructive"
+                        onClick={() => handleDeleteClick(artwork)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
               ))}
             </div>
           ) : (
@@ -389,6 +558,168 @@ const Profile = () => {
           )}
         </div>
       </div>
+
+      {/* Edit Artwork Dialog */}
+      <Dialog open={!!editingArtwork} onOpenChange={(open) => !open && handleCancelEdit()}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Artwork</DialogTitle>
+            <DialogDescription>
+              Update your artwork details and image
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Image Preview */}
+            <div className="space-y-2">
+              <Label>Artwork Image</Label>
+              <div className="relative aspect-video w-full overflow-hidden rounded-lg border-2 border-dashed border-border bg-muted/50">
+                {editImagePreview ? (
+                  <img
+                    src={editImagePreview}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    No image selected
+                  </div>
+                )}
+              </div>
+              <input
+                ref={editFileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleEditImageChange}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => editFileInputRef.current?.click()}
+                className="w-full"
+              >
+                <UploadIcon className="w-4 h-4 mr-2" />
+                Change Image
+              </Button>
+            </div>
+
+            {/* Title */}
+            <div className="space-y-2">
+              <Label htmlFor="edit-title">Title *</Label>
+              <Input
+                id="edit-title"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Give your artwork a title"
+              />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="Describe your artwork..."
+                className="min-h-[100px]"
+              />
+            </div>
+
+            {/* Category and Style */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-category">Category *</Label>
+                <select
+                  id="edit-category"
+                  value={editCategory}
+                  onChange={(e) => setEditCategory(e.target.value)}
+                  className="w-full px-3 py-2 rounded-md border border-input bg-background"
+                >
+                  <option value="">Select category</option>
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-style">Style *</Label>
+                <select
+                  id="edit-style"
+                  value={editStyle}
+                  onChange={(e) => setEditStyle(e.target.value)}
+                  className="w-full px-3 py-2 rounded-md border border-input bg-background"
+                >
+                  <option value="">Select style</option>
+                  {styles.map((style) => (
+                    <option key={style} value={style}>
+                      {style}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleCancelEdit}
+              disabled={updatingArtwork}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateArtwork}
+              disabled={updatingArtwork || !editTitle || !editCategory || !editStyle}
+              className="glow-effect"
+            >
+              {updatingArtwork ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Changes
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingArtwork} onOpenChange={(open) => !open && setDeletingArtwork(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Artwork?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deletingArtwork?.title}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteArtwork}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

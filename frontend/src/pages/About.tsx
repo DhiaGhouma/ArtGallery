@@ -68,13 +68,17 @@ const ProfileCard = ({
   }, [enableTilt]);
 
   return (
-    <div ref={wrapRef} className="profile-card-wrapper" style={{
-      '--pointer-x': '50%',
-      '--pointer-y': '50%',
-      '--rotate-x': '0deg',
-      '--rotate-y': '0deg',
-      '--pointer-from-center': '0'
-    }}>
+    <div
+      ref={wrapRef}
+      className="profile-card-wrapper"
+      style={{
+        '--pointer-x': '50%',
+        '--pointer-y': '50%',
+        '--rotate-x': '0deg',
+        '--rotate-y': '0deg',
+        '--pointer-from-center': '0'
+      } as React.CSSProperties & Record<string, any>}
+    >
       <section ref={cardRef} className="profile-card">
         <div className="profile-inside">
           <div className="profile-shine" />

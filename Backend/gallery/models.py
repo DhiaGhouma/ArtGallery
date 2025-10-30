@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.urls import reverse
 from PIL import Image
+from django.utils import timezone
 
 class Category(models.Model):
     name = models.CharField(max_length=100)
@@ -34,6 +35,9 @@ class Artwork(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     is_featured = models.BooleanField(default=False)
     views = models.PositiveIntegerField(default=0)
+    #yosr's add
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
+    in_stock = models.BooleanField(default=True)
 
     class Meta:
         ordering = ['-created_at']
@@ -94,20 +98,40 @@ class Report(models.Model):
         ('other', 'Other'),
     ]
 
-    reporter = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reports_made')
-    artwork = models.ForeignKey(Artwork, on_delete=models.CASCADE, null=True, blank=True, related_name='reports')
-    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, null=True, blank=True, related_name='reports')
+    reporter = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='reports_made'
+    )
+    # ⬇️ Passer à SET_NULL pour conserver le Report même si l'objet est supprimé
+    artwork = models.ForeignKey(
+        Artwork, on_delete=models.SET_NULL, null=True, blank=True, related_name='reports'
+    )
+    comment = models.ForeignKey(
+        Comment, on_delete=models.SET_NULL, null=True, blank=True, related_name='reports'
+    )
+
     reason = models.CharField(max_length=50, choices=REPORT_CHOICES)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     resolved = models.BooleanField(default=False)
+    # (optionnel mais utile)
+    resolved_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['-created_at']
 
     def __str__(self):
-        target = self.artwork.title if self.artwork else f'Comment by {self.comment.user.username}'
+        if self.artwork and getattr(self.artwork, "title", None):
+            target = self.artwork.title
+        elif self.comment and getattr(self.comment, "user", None):
+            target = f'Comment by {self.comment.user.username}'
+        else:
+            target = 'Deleted content'
         return f'Report by {self.reporter.username} on {target}'
+
+    def mark_resolved(self):
+        self.resolved = True
+        self.resolved_at = timezone.now()
+        self.save(update_fields=['resolved', 'resolved_at'])
     
 class Discussion(models.Model):
     """Modèle pour les discussions"""
