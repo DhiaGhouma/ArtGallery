@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Play, Clock, Eye, ExternalLink, X } from 'lucide-react';
+import { Play, Clock, Eye, ExternalLink, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -18,9 +18,14 @@ const YouTubeTutorials = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<YouTubeVideo | null>(null);
   const [showPlayer, setShowPlayer] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  
+  const VIDEOS_PER_PAGE = 12;
+  const TOTAL_VIDEOS = 36;
 
   useEffect(() => {
     loadTutorials();
+    setCurrentPage(1); // Reset to page 1 when category changes
   }, [selectedCategory]);
 
   const loadTutorials = async () => {
@@ -28,7 +33,7 @@ const YouTubeTutorials = () => {
     setError(null);
     
     try {
-      const results = await searchYouTubeTutorials(selectedCategory.query, 12);
+      const results = await searchYouTubeTutorials(selectedCategory.query, TOTAL_VIDEOS);
       setVideos(results);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load tutorials');
@@ -36,6 +41,31 @@ const YouTubeTutorials = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Calculate pagination
+  const totalPages = Math.ceil(videos.length / VIDEOS_PER_PAGE);
+  const startIndex = (currentPage - 1) * VIDEOS_PER_PAGE;
+  const endIndex = startIndex + VIDEOS_PER_PAGE;
+  const currentVideos = videos.slice(startIndex, endIndex);
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const openVideo = (video: YouTubeVideo) => {
@@ -114,10 +144,11 @@ const YouTubeTutorials = () => {
 
       {/* Videos Grid */}
       {!loading && !error && videos.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
-          {videos.map((video, index) => (
-            <Card
-              key={video.id}
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
+            {currentVideos.map((video, index) => (
+              <Card
+                key={video.id}
               className="group overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer hover:scale-105 border-border hover:border-primary/50"
               onClick={() => openVideo(video)}
               style={{ animationDelay: `${index * 0.05}s` }}
@@ -167,6 +198,48 @@ const YouTubeTutorials = () => {
             </Card>
           ))}
         </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-8">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={goToPreviousPage}
+                disabled={currentPage === 1}
+                className="gap-2"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Previous
+              </Button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => goToPage(page)}
+                    className="w-10"
+                  >
+                    {page}
+                  </Button>
+                ))}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={goToNextPage}
+                disabled={currentPage === totalPages}
+                className="gap-2"
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Empty State */}

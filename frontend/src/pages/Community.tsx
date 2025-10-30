@@ -79,10 +79,10 @@ const Community = () => {
   ];
 
   const categories = [
-    { name: 'All Discussions', icon: MessageSquare, count: 234 },
-    { name: 'Tutorials', icon: BookOpen, count: 67, onClick: () => setActiveTab('tutorials') },
-    { name: 'Techniques', icon: Sparkles, count: 89 },
-    { name: 'Exhibitions', icon: Users, count: 45 },
+    { name: 'All Discussions', icon: MessageSquare },
+    { name: 'Tutorials', icon: BookOpen, onClick: () => setActiveTab('tutorials') },
+    { name: 'Techniques', icon: Sparkles },
+    { name: 'Exhibitions', icon: Users},
   ];
 
   const handleAIChat = () => {
@@ -134,7 +134,6 @@ const Community = () => {
                     >
                       <Icon className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
                       <span className="flex-1 text-left">{cat.name}</span>
-                      <span className="text-sm text-muted-foreground">{cat.count}</span>
                     </button>
                   );
                 })}
