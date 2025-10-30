@@ -149,6 +149,12 @@ def index(request):
                 'comments': comments_data,  # Include all comments
                 'created_at': artwork.created_at.isoformat(),
                 'updated_at': artwork.updated_at.isoformat(),
+                # yosr's :
+                'price': float(artwork.price) if artwork.price else 0,
+                'in_stock': artwork.in_stock,
+
+
+
             })
         
         return JsonResponse(data, safe=False)
@@ -203,6 +209,9 @@ def artwork_detail_update_delete(request, pk):
                 'is_liked': artwork.likes.filter(user=request.user).exists() if request.user.is_authenticated else False,
                 'created_at': artwork.created_at.isoformat(),
                 'updated_at': artwork.updated_at.isoformat(),
+                # yosr's additions
+                'price': float(artwork.price) if artwork.price else 0,
+                'in_stock': artwork.in_stock,
                 'comments': []
             }
             
@@ -241,31 +250,23 @@ def artwork_detail_update_delete(request, pk):
                 return JsonResponse({'error': 'Permission denied'}, status=403)
             
             # Parse multipart form data for PUT request
-            # Django populates POST and FILES even for PUT requests with multipart/form-data
             title = request.POST.get('title')
             description = request.POST.get('description')
             category_name = request.POST.get('category')
             style = request.POST.get('style')
             image = request.FILES.get('image')
             
-            print(f"Update data - Title: {title}, Category: {category_name}, Style: {style}, Has Image: {image is not None}")
-            
             # Update fields if provided
             if title:
                 artwork.title = title
-                print(f"Updated title to: {title}")
             if description is not None:
                 artwork.description = description
-                print(f"Updated description to: {description}")
             if category_name:
                 category, _ = Category.objects.get_or_create(name=category_name)
                 artwork.category = category
-                print(f"Updated category to: {category_name}")
             if style:
                 artwork.style = style
-                print(f"Updated style to: {style}")
             if image:
-                # Delete old image if exists
                 if artwork.image:
                     try:
                         import os
@@ -275,10 +276,8 @@ def artwork_detail_update_delete(request, pk):
                     except Exception as e:
                         print(f"Error deleting old image: {e}")
                 artwork.image = image
-                print(f"Updated image")
             
             artwork.save()
-            print(f"Artwork saved - ID: {artwork.id}")
             
             return JsonResponse({
                 'message': 'Artwork updated successfully',
@@ -296,7 +295,6 @@ def artwork_detail_update_delete(request, pk):
             if artwork.artist != request.user and not request.user.is_staff:
                 return JsonResponse({'error': 'Permission denied'}, status=403)
             
-            # Delete the image file
             if artwork.image:
                 try:
                     import os
@@ -305,9 +303,7 @@ def artwork_detail_update_delete(request, pk):
                 except Exception as e:
                     print(f"Error deleting image file: {e}")
             
-            artwork_id = artwork.id
             artwork.delete()
-            print(f"Artwork deleted - ID: {artwork_id}")
             
             return JsonResponse({'message': 'Artwork deleted successfully'})
             
@@ -317,6 +313,8 @@ def artwork_detail_update_delete(request, pk):
         import traceback
         print(traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
+    
+
 
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -332,6 +330,8 @@ def upload_artwork(request):
         category_name = request.POST.get('category')
         style = request.POST.get('style')
         image = request.FILES.get('image')
+        price = request.POST.get('price')  # AJOUTEZ
+        in_stock = request.POST.get('in_stock', 'true')  # AJOUTEZ
         
         if not all([title, category_name, style, image]):
             return JsonResponse({'error': 'Required fields: title, category, style, image'}, status=400)
@@ -346,7 +346,9 @@ def upload_artwork(request):
             category=category,
             style=style,
             image=image,
-            artist=request.user
+            artist=request.user,
+            price=float(price) if price else 0,  # AJOUTEZ
+            in_stock=in_stock.lower() == 'true'  # AJOUTEZ
         )
         
         return JsonResponse({
@@ -378,6 +380,52 @@ def delete_artwork(request, pk):
     except Artwork.DoesNotExist:
         return JsonResponse({'error': 'Artwork not found'}, status=404)
     except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+@csrf_exempt
+@require_http_methods(["PUT", "PATCH"])
+def update_artwork(request, pk):
+    """Update artwork"""
+    try:
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        artwork = Artwork.objects.get(pk=pk)
+        
+        # Check if user is owner or staff
+        if artwork.artist != request.user and not request.user.is_staff:
+            return JsonResponse({'error': 'Permission denied'}, status=403)
+        
+        # Parse JSON data
+        data = json.loads(request.body)
+        
+        # Update fields
+        if 'title' in data:
+            artwork.title = data['title']
+        if 'description' in data:
+            artwork.description = data['description']
+        if 'price' in data:
+            artwork.price = float(data['price'])
+        if 'in_stock' in data:
+            artwork.in_stock = data['in_stock']
+        if 'is_featured' in data and request.user.is_staff:
+            artwork.is_featured = data['is_featured']
+        if 'category' in data:
+            category, _ = Category.objects.get_or_create(name=data['category'])
+            artwork.category = category
+        if 'style' in data:
+            artwork.style = data['style']
+        
+        artwork.save()
+        
+        return JsonResponse({
+            'message': 'Artwork updated successfully',
+            'id': artwork.id
+        })
+    except Artwork.DoesNotExist:
+        return JsonResponse({'error': 'Artwork not found'}, status=404)
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
 
 
@@ -526,6 +574,56 @@ def suggest_comments(request, pk):
         print(f"AI suggestion error: {str(e)}")
         return JsonResponse({
             'error': 'Failed to generate suggestions. Please try again.',
+            'details': str(e)
+        }, status=500)
+
+
+ #============ AI description Suggestions ============
+@csrf_exempt
+@require_http_methods(["POST"])
+def generate_description(request):
+    """
+    Generate AI-powered description for an artwork
+    POST /artworks/generate-description/
+    Body: { "title": "...", "category": "...", "style": "..." }
+    """
+    try:
+        # Import the service
+        from .ai_description_service import generate_multiple_descriptions
+        
+        # Check authentication
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        # Parse request data
+        data = json.loads(request.body)
+        title = data.get('title')
+        category = data.get('category')
+        style = data.get('style')
+        
+        if not title:
+            return JsonResponse({'error': 'Title is required'}, status=400)
+        
+        # Generate descriptions using AI
+        descriptions = generate_multiple_descriptions(
+            title=title,
+            category=category,
+            style=style,
+            count=3
+        )
+        
+        return JsonResponse({
+            'descriptions': descriptions,
+            'title': title
+        })
+        
+    except Exception as e:
+        # Log error in production
+        print(f"AI description generation error: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return JsonResponse({
+            'error': 'Failed to generate descriptions. Please try again.',
             'details': str(e)
         }, status=500)
 

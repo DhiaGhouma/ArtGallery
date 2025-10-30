@@ -34,6 +34,9 @@ class Artwork(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     is_featured = models.BooleanField(default=False)
     views = models.PositiveIntegerField(default=0)
+    #yosr's add
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
+    in_stock = models.BooleanField(default=True)
 
     class Meta:
         ordering = ['-created_at']

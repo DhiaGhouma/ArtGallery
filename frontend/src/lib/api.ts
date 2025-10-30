@@ -9,6 +9,8 @@ export interface Artwork {
   image: string;
   category: string;
   style: string;
+  price?: number;  // AJOUTEZ
+  in_stock?: boolean;  // AJOUTEZ
   artist: {
     id: number;
     username: string;
@@ -191,6 +193,7 @@ export const api = {
     
     return response.json();
   },
+  /*
 
   async updateArtwork(id: number, formData: FormData): Promise<{ message: string }> {
   const response = await fetch(`${API_BASE_URL}/artworks/${id}/update/`, {
@@ -209,6 +212,99 @@ export const api = {
 },
   async deleteArtwork(id: number): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/artworks/${id}/delete/`, {  // <--- ici
+    method: 'DELETE',
+    headers: getAuthHeader(),
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to delete artwork');
+  }
+},
+
+
+  async updateArtwork(id: number, data: {
+  title?: string;
+  description?: string;
+  price?: number;
+  in_stock?: boolean;
+  category?: string;
+  style?: string;
+}): Promise<{ message: string; id: number }> {
+  const response = await fetch(`${API_BASE_URL}/artworks/${id}/update/`, {
+    method: 'PUT',
+    headers: {
+      ...getAuthHeader(),
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to update artwork');
+  }
+  
+  return response.json();
+},
+
+ */
+  async updateArtwork(id: number, data: {
+  title?: string;
+  description?: string;
+  price?: number;
+  in_stock?: boolean;
+  category?: string;
+  style?: string;
+  image?: File;
+}): Promise<{ message: string; id: number }> {
+  if (data.image) {
+    const formData = new FormData();
+    if (data.title) formData.append('title', data.title);
+    if (data.description) formData.append('description', data.description);
+    if (data.price !== undefined) formData.append('price', data.price.toString());
+    if (data.in_stock !== undefined) formData.append('in_stock', data.in_stock.toString());
+    if (data.category) formData.append('category', data.category);
+    if (data.style) formData.append('style', data.style);
+    formData.append('image', data.image);
+
+    const response = await fetch(`${API_BASE_URL}/artworks/${id}/update/`, {
+      method: 'POST',
+      headers: getAuthHeader(),
+      credentials: 'include',
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update artwork');
+    }
+    
+    return response.json();
+  }
+  
+  const response = await fetch(`${API_BASE_URL}/artworks/${id}/update/`, {
+    method: 'PUT',
+    headers: {
+      ...getAuthHeader(),
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to update artwork');
+  }
+  
+  return response.json();
+},
+
+async deleteArtwork(id: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/artworks/${id}/delete/`, {
     method: 'DELETE',
     headers: getAuthHeader(),
     credentials: 'include',
@@ -313,6 +409,30 @@ export const api = {
     
     return response.json();
   },
+// ============ AI Description Generation ============
+
+async generateDescription(data: {
+  title: string;
+  category?: string;
+  style?: string;
+}): Promise<{ descriptions: string[]; title: string }> {
+  const response = await fetch(`${API_BASE_URL}/artworks/generate-description/`, {
+    method: 'POST',
+    headers: {
+      ...getAuthHeader(),
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to generate description');
+  }
+  
+  return response.json();
+},
 
   // ============ Reports ============
   
