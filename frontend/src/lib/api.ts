@@ -1,5 +1,5 @@
 // API service for Django REST API backend
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://artgallery-1-2sie.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 // Types
 export interface Artwork {
   id: number;
@@ -192,64 +192,7 @@ export const api = {
     
     return response.json();
   },
-  /*
 
-  async updateArtwork(id: number, formData: FormData): Promise<{ message: string }> {
-  const response = await fetch(`${API_BASE_URL}/artworks/${id}/update/`, {
-    method: 'POST',  // Changed from PUT to POST
-    headers: getAuthHeader(),
-    credentials: 'include',
-    body: formData,
-  });
-  
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to update artwork');
-  }
-  
-  return response.json();
-},
-  async deleteArtwork(id: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/artworks/${id}/delete/`, {  // <--- ici
-    method: 'DELETE',
-    headers: getAuthHeader(),
-    credentials: 'include',
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to delete artwork');
-  }
-},
-
-
-  async updateArtwork(id: number, data: {
-  title?: string;
-  description?: string;
-  price?: number;
-  in_stock?: boolean;
-  category?: string;
-  style?: string;
-}): Promise<{ message: string; id: number }> {
-  const response = await fetch(`${API_BASE_URL}/artworks/${id}/update/`, {
-    method: 'PUT',
-    headers: {
-      ...getAuthHeader(),
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-    body: JSON.stringify(data),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to update artwork');
-  }
-  
-  return response.json();
-},
-
- */
   async updateArtwork(id: number, data: {
   title?: string;
   description?: string;
@@ -834,4 +777,114 @@ async generateDescription(data: {
       return res.json();
     },
   },
+  async aiMoodMatcher(mood: string): Promise<{
+    mood: string;
+    characteristics: string[];
+    artworks: Artwork[];
+    count: number;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/ai/mood-matcher/`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ mood }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to match mood');
+    }
+    
+    return response.json();
+  },
+
+  async aiCuratorChat(message: string): Promise<{
+    message: string;
+    artworks: Array<{
+      id: number;
+      title: string;
+      image: string;
+      price: number;
+    }>;
+    keywords: string[];
+  }> {
+    const response = await fetch(`${API_BASE_URL}/ai/curator-chat/`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ message }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to get curator response');
+    }
+    
+    return response.json();
+  },
+
+  async aiColorAnalyzer(colors: string[]): Promise<{
+    analysis: {
+      mood: string;
+      style: string;
+      keywords: string[];
+    };
+    artworks: Artwork[];
+  }> {
+    const response = await fetch(`${API_BASE_URL}/ai/color-analyzer/`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ colors }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to analyze colors');
+    }
+    
+    return response.json();
+  },
+
+  async aiSimilaritySearch(artworkId: number, threshold: number = 75): Promise<{
+    source_artwork: { id: number; title: string };
+    similar_artworks: Array<{
+      id: number;
+      title: string;
+      image: string;
+      price: number;
+      similarity_score: number;
+      artist: { id: number; username: string };
+    }>;
+    threshold: number;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/ai/similarity-search/`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ artwork_id: artworkId, threshold }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to find similar artworks');
+    }
+    
+    return response.json();
+  },
+
+
+  
 };
