@@ -1,5 +1,7 @@
 from django.urls import path ,include
 from . import views
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     # Artworks
@@ -7,6 +9,7 @@ urlpatterns = [
     path('artworks/upload/', views.upload_artwork, name='upload_artwork'),
     path('artworks/<int:pk>/', views.artwork_detail_update_delete, name='artwork_detail'),
     path('artworks/<int:pk>/update/', views.update_artwork, name='update_artwork'),  # Add this
+    path('artworks/<int:pk>/delete/', views.delete_artwork, name='delete_artwork'),
     path('artworks/<int:pk>/like/', views.toggle_like, name='toggle_like'),
     path('artworks/<int:pk>/comment/', views.add_comment, name='add_comment'),
     path('artworks/<int:pk>/suggest-comments/', views.suggest_comments, name='suggest_comments'),
@@ -51,7 +54,12 @@ urlpatterns = [
 
     # Evaluation (IA)
     path('evaluation/', include('evaluation.urls')),
-    
-    
-    
+
+    # ============ AI Experience Routes ============
+    path('ai/mood-matcher/', views.ai_mood_matcher, name='ai_mood_matcher'),
+    path('ai/curator-chat/', views.ai_art_curator, name='ai_art_curator'),
+    path('ai/color-analyzer/', views.ai_color_analyzer, name='ai_color_analyzer'),
+    path('ai/similarity-search/', views.ai_similarity_search, name='ai_similarity_search'),    
 ]
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
