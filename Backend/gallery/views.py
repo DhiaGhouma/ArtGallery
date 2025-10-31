@@ -17,6 +17,8 @@ from dotenv import load_dotenv
 import json
 import os
 from .ai_service import generate_comment_suggestions
+from .utils import call_groq_ai
+
 load_dotenv()
 
 GROQ_API_KEY = os.getenv('GROQ_API_KEY')
@@ -434,52 +436,18 @@ def delete_artwork(request, pk):
         if artwork.artist != request.user and not request.user.is_staff:
             return JsonResponse({'error': 'Permission denied'}, status=403)
         
+        # Delete the image file
+        if artwork.image:
+            try:
+                import os
+                if os.path.exists(artwork.image.path):
+                    os.remove(artwork.image.path)
+            except Exception as e:
+                print(f"Error deleting image: {e}")
+        
         artwork.delete()
         return JsonResponse({'message': 'Artwork deleted successfully'})
-    except Artwork.DoesNotExist:
-        return JsonResponse({'error': 'Artwork not found'}, status=404)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
-@csrf_exempt
-@require_http_methods(["PUT", "PATCH"])
-def update_artwork(request, pk):
-    """Update artwork"""
-    try:
-        if not request.user.is_authenticated:
-            return JsonResponse({'error': 'Authentication required'}, status=401)
         
-        artwork = Artwork.objects.get(pk=pk)
-        
-        # Check if user is owner or staff
-        if artwork.artist != request.user and not request.user.is_staff:
-            return JsonResponse({'error': 'Permission denied'}, status=403)
-        
-        # Parse JSON data
-        data = json.loads(request.body)
-        
-        # Update fields
-        if 'title' in data:
-            artwork.title = data['title']
-        if 'description' in data:
-            artwork.description = data['description']
-        if 'price' in data:
-            artwork.price = float(data['price'])
-        if 'in_stock' in data:
-            artwork.in_stock = data['in_stock']
-        if 'is_featured' in data and request.user.is_staff:
-            artwork.is_featured = data['is_featured']
-        if 'category' in data:
-            category, _ = Category.objects.get_or_create(name=data['category'])
-            artwork.category = category
-        if 'style' in data:
-            artwork.style = data['style']
-        
-        artwork.save()
-        
-        return JsonResponse({
-            'message': 'Artwork updated successfully',
-            'id': artwork.id
-        })
     except Artwork.DoesNotExist:
         return JsonResponse({'error': 'Artwork not found'}, status=404)
     except Exception as e:
@@ -1160,10 +1128,11 @@ def get_categories(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
     
+# ✅ GARDEZ CELLE-CI
 @csrf_exempt
-@require_http_methods(["POST"])
+@require_http_methods(["PUT", "PATCH"])
 def update_artwork(request, pk):
-    """Update artwork using POST"""
+    """Update artwork"""
     try:
         if not request.user.is_authenticated:
             return JsonResponse({'error': 'Authentication required'}, status=401)
@@ -1174,50 +1143,30 @@ def update_artwork(request, pk):
         if artwork.artist != request.user and not request.user.is_staff:
             return JsonResponse({'error': 'Permission denied'}, status=403)
         
-        # Get form data
-        title = request.POST.get('title')
-        description = request.POST.get('description')
-        category_name = request.POST.get('category')
-        style = request.POST.get('style')
-        image = request.FILES.get('image')
+        # Parse JSON data
+        data = json.loads(request.body)
         
-        print(f"Update data - Title: {title}, Category: {category_name}, Style: {style}, Has Image: {image is not None}")
-        
-        # Update fields if provided
-        if title:
-            artwork.title = title
-            print(f"Updated title to: {title}")
-        if description is not None:
-            artwork.description = description
-            print(f"Updated description")
-        if category_name:
-            category, _ = Category.objects.get_or_create(name=category_name)
+        # Update fields
+        if 'title' in data:
+            artwork.title = data['title']
+        if 'description' in data:
+            artwork.description = data['description']
+        if 'price' in data:
+            artwork.price = float(data['price'])
+        if 'in_stock' in data:
+            artwork.in_stock = data['in_stock']
+        if 'category' in data:
+            category, _ = Category.objects.get_or_create(name=data['category'])
             artwork.category = category
-            print(f"Updated category to: {category_name}")
-        if style:
-            artwork.style = style
-            print(f"Updated style to: {style}")
-        if image:
-            # Delete old image if exists
-            if artwork.image:
-                try:
-                    import os
-                    old_path = artwork.image.path
-                    if os.path.exists(old_path):
-                        os.remove(old_path)
-                except Exception as e:
-                    print(f"Error deleting old image: {e}")
-            artwork.image = image
-            print(f"Updated image")
+        if 'style' in data:
+            artwork.style = data['style']
         
         artwork.save()
-        print(f"Artwork saved - ID: {artwork.id}")
         
         return JsonResponse({
             'message': 'Artwork updated successfully',
             'id': artwork.id
         })
-        
     except Artwork.DoesNotExist:
         return JsonResponse({'error': 'Artwork not found'}, status=404)
     except Exception as e:
@@ -1228,13 +1177,446 @@ def update_artwork(request, pk):
 @csrf_exempt
 @require_http_methods(["POST"])
 def generate_art_technique(request):
+    """Generate art technique suggestions using AI"""
     try:
-        body = json.loads(request.body)
-        prompt = body.get("prompt", "")
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        data = json.loads(request.body)
+        prompt = data.get('prompt', '')
+        
         if not prompt:
-            return JsonResponse({"error": "Prompt is required"}, status=400)
-
+            return JsonResponse({'error': 'Prompt is required'}, status=400)
+        
+        # Call Groq AI
         answer = call_groq_ai(prompt)
-        return JsonResponse({"generated_text": answer})
+        
+        return JsonResponse({
+            'success': True,
+            'generated_text': answer
+        })
+        
     except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+        import traceback
+        print(traceback.format_exc())
+        return JsonResponse({
+            'error': 'Failed to generate technique',
+            'details': str(e)
+        }, status=500)
+# Ajoutez ces nouvelles vues dans gallery/views.py
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def ai_mood_matcher(request):
+    """
+    AI Mood-based artwork recommendation
+    POST /ai/mood-matcher/
+    Body: { "mood": "joyful" }
+    """
+    try:
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        data = json.loads(request.body)
+        mood = data.get('mood')
+        
+        if not mood:
+            return JsonResponse({'error': 'Mood is required'}, status=400)
+        
+        # Mapping plus précis des humeurs
+        mood_keywords = {
+            'joyful': {
+                'colors': ['yellow', 'orange', 'bright', 'vibrant', 'colorful', 'sunny'],
+                'themes': ['happy', 'joy', 'celebration', 'cheerful', 'playful', 'light']
+            },
+            'calm': {
+                'colors': ['blue', 'green', 'white', 'soft', 'pastel', 'serene'],
+                'themes': ['peaceful', 'tranquil', 'meditative', 'zen', 'quiet', 'gentle']
+            },
+            'energetic': {
+                'colors': ['red', 'orange', 'bold', 'intense', 'vivid', 'dynamic'],
+                'themes': ['energy', 'power', 'movement', 'action', 'passion', 'fire']
+            },
+            'mysterious': {
+                'colors': ['purple', 'dark', 'deep', 'shadow', 'night', 'black'],
+                'themes': ['mystery', 'enigma', 'mystical', 'hidden', 'secret', 'unknown']
+            },
+            'romantic': {
+                'colors': ['pink', 'red', 'rose', 'soft', 'warm', 'gentle'],
+                'themes': ['love', 'romance', 'heart', 'tender', 'sweet', 'intimate']
+            },
+            'melancholic': {
+                'colors': ['grey', 'blue', 'muted', 'subdued', 'rain', 'storm'],
+                'themes': ['sad', 'contemplative', 'thoughtful', 'rain', 'solitude', 'reflection']
+            }
+        }
+        
+        # Construire une requête complexe
+        mood_data = mood_keywords.get(mood, mood_keywords['joyful'])
+        all_keywords = mood_data['colors'] + mood_data['themes']
+        
+        # Créer une requête Q complexe
+        query = Q()
+        for keyword in all_keywords:
+            query |= Q(title__icontains=keyword)
+            query |= Q(description__icontains=keyword)
+            if hasattr(Artwork, 'category'):
+                query |= Q(category__name__icontains=keyword)
+            if hasattr(Artwork, 'tags'):
+                query |= Q(tags__name__icontains=keyword)
+        
+        # Récupérer les artworks correspondants
+        artworks = Artwork.objects.filter(query).distinct().annotate(
+            likes_count=Count('likes', distinct=True)
+        ).order_by('-likes_count')[:6]
+        
+        # Si pas assez de résultats spécifiques, prendre des artworks populaires variés
+        if artworks.count() < 3:
+            artworks = Artwork.objects.annotate(
+                likes_count=Count('likes', distinct=True)
+            ).order_by('-created_at', '-likes_count')[:6]
+        
+        # Appel à Groq AI pour des caractéristiques
+        try:
+            prompt = f"""You are an art curator. Based on the mood '{mood}', recommend 3 art characteristics that match this emotion.
+            Return ONLY a JSON array of 3 strings.
+            Example: ["vibrant colors", "dynamic composition", "bold brushstrokes"]
+            """
+            ai_response = call_groq_ai(prompt)
+            characteristics = json.loads(ai_response)
+        except:
+            characteristics = [f"{mood} artwork", "expressive style", "emotional depth"]
+        
+        # Formatter les données
+        artworks_data = []
+        for artwork in artworks:
+            artworks_data.append({
+                'id': artwork.id,
+                'title': artwork.title,
+                'description': artwork.description or '',
+                'image': request.build_absolute_uri(artwork.image.url) if artwork.image else None,
+                'price': float(artwork.price) if artwork.price else 0,
+                'likes_count': artwork.likes_count,
+                'artist': {
+                    'id': artwork.artist.id,
+                    'username': artwork.artist.username,
+                }
+            })
+        
+        return JsonResponse({
+            'mood': mood,
+            'characteristics': characteristics,
+            'artworks': artworks_data,
+            'count': len(artworks_data),
+            'keywords_used': all_keywords[:5]  # Pour debug
+        })
+        
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return JsonResponse({
+            'error': 'Failed to generate mood recommendations',
+            'details': str(e)
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def ai_art_curator(request):
+    """
+    AI Art Curator Chat
+    POST /ai/curator-chat/
+    Body: { "message": "I want abstract art with warm colors" }
+    """
+    try:
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        data = json.loads(request.body)
+        user_message = data.get('message', '').strip()
+        
+        if not user_message:
+            return JsonResponse({'error': 'Message is required'}, status=400)
+        
+        # Prompt amélioré pour l'AI curator
+        prompt = f"""You are an expert art curator. A user says: "{user_message}"
+
+Extract 4-5 specific art-related keywords from their request (styles, colors, themes, emotions, techniques).
+Also write a friendly 2-sentence response.
+
+Return ONLY valid JSON:
+{{
+    "response": "friendly message here",
+    "keywords": ["keyword1", "keyword2", "keyword3", "keyword4"]
+}}
+"""
+        
+        # Appel à Groq AI
+        try:
+            ai_response = call_groq_ai(prompt)
+            parsed = json.loads(ai_response)
+            curator_message = parsed.get('response', 'Let me find some artworks for you!')
+            keywords = parsed.get('keywords', [])
+        except:
+            # Extraction simple de mots-clés en cas d'échec AI
+            curator_message = "Based on your preferences, I've found some artworks that might interest you!"
+            # Extraction basique de mots-clés
+            words = user_message.lower().split()
+            art_terms = ['abstract', 'modern', 'classic', 'colorful', 'warm', 'cold', 'bright', 'dark', 
+                        'landscape', 'portrait', 'still life', 'vibrant', 'minimal', 'detailed']
+            keywords = [word for word in words if word in art_terms][:4]
+            if not keywords:
+                keywords = ['popular', 'trending', 'featured']
+        
+        # Rechercher des artworks avec les mots-clés
+        query = Q()
+        for keyword in keywords:
+            query |= Q(title__icontains=keyword)
+            query |= Q(description__icontains=keyword)
+            if hasattr(Artwork, 'category'):
+                query |= Q(category__name__icontains=keyword)
+        
+        artworks = Artwork.objects.filter(query).distinct().annotate(
+            likes_count=Count('likes', distinct=True)
+        ).order_by('-likes_count')[:4]
+        
+        # Si pas de résultats, prendre des artworks populaires
+        if not artworks.exists():
+            artworks = Artwork.objects.annotate(
+                likes_count=Count('likes', distinct=True)
+            ).order_by('-likes_count', '-created_at')[:4]
+        
+        artworks_data = []
+        for artwork in artworks:
+            artworks_data.append({
+                'id': artwork.id,
+                'title': artwork.title,
+                'image': request.build_absolute_uri(artwork.image.url) if artwork.image else None,
+                'price': float(artwork.price) if artwork.price else 0,
+            })
+        
+        return JsonResponse({
+            'message': curator_message,
+            'artworks': artworks_data,
+            'keywords': keywords
+        })
+        
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return JsonResponse({
+            'error': 'Failed to process curator request',
+            'details': str(e)
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def ai_color_analyzer(request):
+    """
+    AI Color Palette Analysis
+    POST /ai/color-analyzer/
+    Body: { "colors": ["#FF6B6B", "#FFA07A"] }
+    """
+    try:
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        data = json.loads(request.body)
+        colors = data.get('colors', [])
+        
+        if not colors:
+            return JsonResponse({'error': 'Colors array is required'}, status=400)
+        
+        # Analyser les couleurs
+        def hex_to_rgb(hex_color):
+            hex_color = hex_color.lstrip('#')
+            return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        
+        def get_color_name(rgb):
+            r, g, b = rgb
+            if r > 200 and g < 100 and b < 100:
+                return 'red'
+            elif r > 200 and g > 150 and b < 100:
+                return 'orange'
+            elif r > 200 and g > 200 and b < 100:
+                return 'yellow'
+            elif r < 100 and g > 150 and b < 100:
+                return 'green'
+            elif r < 100 and g < 100 and b > 200:
+                return 'blue'
+            elif r > 150 and g < 100 and b > 150:
+                return 'purple'
+            elif r > 200 and g > 150 and b > 150:
+                return 'pink'
+            elif r < 100 and g < 100 and b < 100:
+                return 'dark'
+            elif r > 200 and g > 200 and b > 200:
+                return 'light'
+            else:
+                return 'colorful'
+        
+        # Extraire les noms de couleurs
+        color_names = []
+        for hex_color in colors:
+            try:
+                rgb = hex_to_rgb(hex_color)
+                color_names.append(get_color_name(rgb))
+            except:
+                continue
+        
+        # Appel AI pour analyse
+        try:
+            prompt = f"""Analyze this color palette: {', '.join(colors)}
+            
+Return ONLY valid JSON:
+{{
+    "mood": "one word emotion",
+    "style": "art style",
+    "keywords": ["keyword1", "keyword2", "keyword3"]
+}}
+"""
+            ai_response = call_groq_ai(prompt)
+            analysis = json.loads(ai_response)
+            keywords = analysis.get('keywords', color_names)
+        except:
+            analysis = {
+                'mood': 'vibrant',
+                'style': 'contemporary',
+                'keywords': color_names
+            }
+            keywords = color_names
+        
+        # Rechercher des artworks
+        query = Q()
+        for keyword in keywords:
+            query |= Q(title__icontains=keyword)
+            query |= Q(description__icontains=keyword)
+        
+        artworks = Artwork.objects.filter(query).distinct().annotate(
+            likes_count=Count('likes', distinct=True)
+        ).order_by('-likes_count')[:6]
+        
+        # Fallback
+        if not artworks.exists():
+            artworks = Artwork.objects.annotate(
+                likes_count=Count('likes', distinct=True)
+            ).order_by('-created_at')[:6]
+        
+        artworks_data = []
+        for artwork in artworks:
+            artworks_data.append({
+                'id': artwork.id,
+                'title': artwork.title,
+                'image': request.build_absolute_uri(artwork.image.url) if artwork.image else None,
+                'description': artwork.description or '',
+                'price': float(artwork.price) if artwork.price else 0,
+                'category': artwork.category.name if hasattr(artwork, 'category') and artwork.category else None,
+            })
+        
+        return JsonResponse({
+            'analysis': analysis,
+            'artworks': artworks_data,
+            'color_names': color_names
+        })
+        
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return JsonResponse({
+            'error': 'Failed to analyze colors',
+            'details': str(e)
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def ai_similarity_search(request):
+    """
+    Find similar artworks
+    POST /ai/similarity-search/
+    Body: { "artwork_id": 1, "threshold": 75 }
+    """
+    try:
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        data = json.loads(request.body)
+        artwork_id = data.get('artwork_id')
+        threshold = data.get('threshold', 75)
+        
+        # Récupérer l'artwork source
+        source_artwork = Artwork.objects.get(pk=artwork_id)
+        
+        # Trouver des artworks similaires
+        query = Q()
+        
+        # Par catégorie
+        if hasattr(source_artwork, 'category') and source_artwork.category:
+            query |= Q(category=source_artwork.category)
+        
+        # Par style
+        if hasattr(source_artwork, 'style') and source_artwork.style:
+            query |= Q(style=source_artwork.style)
+        
+        # Par artiste
+        query |= Q(artist=source_artwork.artist)
+        
+        # Par mots-clés dans le titre
+        title_words = source_artwork.title.split()[:3]
+        for word in title_words:
+            if len(word) > 3:
+                query |= Q(title__icontains=word)
+        
+        similar = Artwork.objects.filter(query).exclude(
+            id=artwork_id
+        ).distinct().annotate(
+            likes_count=Count('likes', distinct=True)
+        ).order_by('-likes_count')[:6]
+        
+        artworks_data = []
+        for idx, artwork in enumerate(similar):
+            # Calculer un score de similarité basé sur plusieurs facteurs
+            score = 70
+            if hasattr(artwork, 'category') and hasattr(source_artwork, 'category'):
+                if artwork.category == source_artwork.category:
+                    score += 15
+            if hasattr(artwork, 'style') and hasattr(source_artwork, 'style'):
+                if artwork.style == source_artwork.style:
+                    score += 10
+            if artwork.artist == source_artwork.artist:
+                score += 10
+            
+            # Ajuster selon la popularité
+            score = min(score + (idx * -2), 95)  # Décroit légèrement
+            
+            artworks_data.append({
+                'id': artwork.id,
+                'title': artwork.title,
+                'image': request.build_absolute_uri(artwork.image.url) if artwork.image else None,
+                'price': float(artwork.price) if artwork.price else 0,
+                'similarity_score': max(threshold, score),
+                'artist': {
+                    'id': artwork.artist.id,
+                    'username': artwork.artist.username,
+                }
+            })
+        
+        return JsonResponse({
+            'source_artwork': {
+                'id': source_artwork.id,
+                'title': source_artwork.title,
+            },
+            'similar_artworks': artworks_data,
+            'threshold': threshold
+        })
+        
+    except Artwork.DoesNotExist:
+        return JsonResponse({'error': 'Artwork not found'}, status=404)
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return JsonResponse({
+            'error': 'Failed to find similar artworks',
+            'details': str(e)
+        }, status=500)
