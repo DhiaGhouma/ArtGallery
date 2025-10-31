@@ -69,6 +69,14 @@ const Navbar = () => {
                 <span className="hidden sm:inline">Community</span>
               </Button>
             </Link>
+            <Link 
+              to="/ai-experience" 
+              className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-primary/10 transition"
+            >
+              <Sparkles className="w-5 h-5" />
+              AI Experience
+            </Link>
+            
 
             {/* <Link to="/events">
               <Button
