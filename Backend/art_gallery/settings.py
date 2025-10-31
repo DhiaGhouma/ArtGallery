@@ -4,12 +4,18 @@ Django settings for art_gallery project.
 
 from pathlib import Path
 import os
+from dotenv import load_dotenv
+import sys
+if 'runserver' in sys.argv or 'localhost' in str(ALLOWED_HOSTS):
+    # Force le service des médias en dev
+    MEDIA_FILES_DEBUG_MODE = True
 
+load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-b7v!wnzmlm*43di6$9l5v_tg1fw!ws($w)(6xs-b77-flpp6ef')
 
-DEBUG = os.getenv('DEBUG', 'False') == 'True'
+DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'artgallery-1-2sie.onrender.com']
 
@@ -154,10 +160,11 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
+# Media files (uploads)
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -168,4 +175,5 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
+
 }
