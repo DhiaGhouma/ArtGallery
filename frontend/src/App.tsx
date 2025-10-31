@@ -25,6 +25,7 @@ import AdminDashboard from "./pages/Admin/AdminDashboard";
 import Evaluation from "./pages/Evaluation";
 import TechniqueEncyclopedia from "./pages/TechniqueEncyclopedia";
 import MyListings from "./pages/MyListings";
+import AIArtExperience from "./pages/AIArtExperience";
 const queryClient = new QueryClient();
 
 function AppRoutes() {
@@ -64,6 +65,7 @@ function AppRoutes() {
         <Route path="/evaluation" element={<Evaluation />} />
         <Route path="/technique-encyclopedia" element={<TechniqueEncyclopedia />} />
         <Route path="/my-listings" element={<MyListings />} />
+        <Route path="/ai-experience" element={<AIArtExperience />} />
 
         
       </Routes>
